@@ -44,27 +44,173 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { Dose } from "../constants/types";
 
-export default function DoseCard({ item, onNotify }: { item: Dose; onNotify: (dose: Dose) => void }) {
+interface DoseCardProps {
+  item: Dose;
+  onNotify: (dose: Dose) => void;
+  onEdit: (dose: Dose) => void;
+  onDelete: (dose: Dose) => void;
+  onToggle: (dose: Dose) => void;
+}
+
+export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }: DoseCardProps) {
+  const handleNotify = () => {
+    console.log("DoseCard: Notify button pressed for", item.medName);
+    onNotify(item);
+  };
+
   return (
-    <View style={styles.card}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.title}>{item.medName}</Text>
-        <Text style={styles.sub}>
-          {item.dose ? `${item.dose} • ` : ""}{item.time}
-        </Text>
+    <View style={[styles.card, !item.enabled && styles.cardDisabled]}>
+      <View style={styles.cardContent}>
+        <View style={styles.timeBadge}>
+          <Text style={styles.timeText}>{item.time}</Text>
+        </View>
+        <View style={styles.infoSection}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, !item.enabled && styles.titleDisabled]}>{item.medName}</Text>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, item.enabled ? styles.toggleOn : styles.toggleOff]}
+              onPress={() => onToggle(item)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.toggleText}>{item.enabled ? "ON" : "OFF"}</Text>
+            </TouchableOpacity>
+          </View>
+          {item.dose && (
+            <Text style={[styles.dose, !item.enabled && styles.doseDisabled]}>{item.dose}</Text>
+          )}
+        </View>
       </View>
 
-      <TouchableOpacity style={styles.btn} onPress={() => onNotify(item)}>
-        <Text style={styles.btnText}>Notify</Text>
-      </TouchableOpacity>
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={styles.actionBtn} 
+          onPress={handleNotify}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.actionBtnText}>🔔</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionBtn} 
+          onPress={() => onEdit(item)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.actionBtnText}>✏️</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionBtn, styles.deleteBtn]} 
+          onPress={() => onDelete(item)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.actionBtnText}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 14, borderRadius: 14, backgroundColor: "#fff", marginBottom: 12, flexDirection: "row", alignItems: "center" },
-  title: { fontSize: 16, fontWeight: "800" },
-  sub: { marginTop: 4, color: "#555" },
-  btn: { backgroundColor: "#111", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10 },
-  btnText: { color: "white", fontWeight: "800" },
+  card: { 
+    padding: 16, 
+    borderRadius: 16, 
+    backgroundColor: "#fff", 
+    flexDirection: "row", 
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    marginBottom: 12,
+  },
+  cardDisabled: {
+    opacity: 0.6,
+    backgroundColor: "#fafafa",
+  },
+  cardContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  timeBadge: {
+    backgroundColor: "#f0f4ff",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#6366f1",
+  },
+  infoSection: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  title: { 
+    fontSize: 17, 
+    fontWeight: "800",
+    color: "#1a1a1a",
+    flex: 1,
+  },
+  titleDisabled: {
+    color: "#999",
+  },
+  dose: { 
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  doseDisabled: {
+    color: "#999",
+  },
+  toggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  toggleOn: {
+    backgroundColor: "#d1fae5",
+  },
+  toggleOff: {
+    backgroundColor: "#fee2e2",
+  },
+  toggleText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1a1a1a",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 6,
+    marginLeft: 8,
+  },
+  actionBtn: { 
+    backgroundColor: "#f5f5f5", 
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+  },
+  deleteBtn: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#fecaca",
+  },
+  actionBtnText: { 
+    fontSize: 16,
+  },
 });
