@@ -11,23 +11,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Add notification listeners for debugging
-Notifications.addNotificationReceivedListener((notification) => {
-  console.log("🔔 Notification received:", {
-    identifier: notification.request.identifier,
-    title: notification.request.content.title,
-    body: notification.request.content.body,
-    trigger: notification.request.trigger,
-  });
-});
-
-Notifications.addNotificationResponseReceivedListener((response) => {
-  console.log("👆 Notification tapped:", {
-    identifier: response.notification.request.identifier,
-    actionIdentifier: response.actionIdentifier,
-  });
-});
-
 export async function ensureNotificationPermissions() {
   try {
     if (Platform.OS === "android") {
@@ -56,8 +39,6 @@ export async function scheduleDoseNotification(params: {
   minute: number;
 }) {
   try {
-    console.log(`Scheduling notification for ${params.hour}:${params.minute.toString().padStart(2, '0')}`);
-    
     // Use daily recurring trigger - automatically repeats every day
     const trigger: Notifications.DailyTriggerInput = {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -66,18 +47,10 @@ export async function scheduleDoseNotification(params: {
       channelId: Platform.OS === "android" ? "dose-reminders" : undefined,
     };
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: { 
-        title: params.title, 
-        body: params.body, 
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-      },
+    return await Notifications.scheduleNotificationAsync({
+      content: { title: params.title, body: params.body, sound: true },
       trigger,
     });
-
-    console.log(`✅ Notification scheduled with ID: ${notificationId} for ${params.hour}:${params.minute.toString().padStart(2, '0')}`);
-    return notificationId;
   } catch (error) {
     console.error("Error scheduling notification:", error);
     throw error;
@@ -112,32 +85,6 @@ export async function getAllScheduledNotifications() {
   } catch (error) {
     console.error("Error getting scheduled notifications:", error);
     return [];
-  }
-}
-
-export async function scheduleTestNotification(minutesFromNow: number = 1) {
-  try {
-    const trigger: Notifications.TimeIntervalTriggerInput = {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: minutesFromNow * 60,
-      repeats: false,
-    };
-
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "🧪 Test Notification",
-        body: `This is a test notification scheduled ${minutesFromNow} minute(s) ago`,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-      },
-      trigger,
-    });
-
-    console.log(`✅ Test notification scheduled for ${minutesFromNow} minute(s) from now (ID: ${notificationId})`);
-    return notificationId;
-  } catch (error) {
-    console.error("Error scheduling test notification:", error);
-    throw error;
   }
 }
 
