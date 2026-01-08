@@ -310,12 +310,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from "react-native";
 
 import { signOut } from "firebase/auth";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { ref, set } from "firebase/database";
 
 import DoseCard from "../../components/DoseCard";
 import Sidebar from "../../components/Sidebar";
 import type { Dose } from "../../constants/types";
-import { auth, db } from "../../src/firebase";
+import { auth, db, rtdb } from "../../src/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 
 import {
@@ -330,6 +331,7 @@ export default function Home() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const { isDark } = useTheme();
   const [userName, setUserName] = useState<string | null>(null);
+  const [devicePIN, setDevicePIN] = useState<string | null>(null);
 
   const colors = isDark
     ? {
@@ -370,6 +372,25 @@ export default function Home() {
       const emailName = user?.email?.split("@")[0] || null;
       setUserName(emailName);
     }
+  }, []);
+
+  // Get linked device PIN
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const devicesRef = collection(db, "users", uid, "devices");
+    getDocs(devicesRef).then((snapshot) => {
+      if (!snapshot.empty) {
+        // Get the first linked device
+        const deviceData = snapshot.docs[0].data();
+        if (deviceData.devicePIN) {
+          setDevicePIN(deviceData.devicePIN);
+        }
+      }
+    }).catch((error) => {
+      console.error("Error fetching device:", error);
+    });
   }, []);
 
   // Live schedule from Firestore + auto notification scheduling
@@ -539,6 +560,23 @@ export default function Home() {
     Alert.alert("Scheduled", `Reminder set for ${dose.time} (next occurrence).`);
   };
 
+  // Trigger device dispense
+  const triggerDispense = async () => {
+    if (!devicePIN) {
+      Alert.alert("No device linked", "Please link a device first from the device link page.");
+      return;
+    }
+
+    try {
+      const dispenseRef = ref(rtdb, `devices/${devicePIN}/dispense`);
+      await set(dispenseRef, true);
+      Alert.alert("Dispense triggered", "The device will dispense a dose now.");
+    } catch (error: any) {
+      console.error("Error triggering dispense:", error);
+      Alert.alert("Failed", "Could not trigger dispense. Make sure the device is online.");
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
@@ -551,7 +589,7 @@ export default function Home() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.menuBtn} onPress={() => setSidebarVisible(true)}>
             <Text style={[styles.menuBtnText, { color: colors.text }]}>☰</Text>
-          </TouchableOpacity>
+        </TouchableOpacity>
           <View style={styles.headerContent}>
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>
               Hello{userName ? `, ${userName}` : ""}! 👋
@@ -559,7 +597,7 @@ export default function Home() {
             <Text style={[styles.h1, { color: colors.text }]}>Your Medications</Text>
           </View>
           <View style={styles.menuBtn} />
-        </View>
+      </View>
 
         {/* Next Dose Card */}
         <View style={[styles.nextCard, { backgroundColor: isDark ? '#6366f1' : '#6366f1' }]}>
@@ -567,7 +605,7 @@ export default function Home() {
             <Text style={styles.nextCardIcon}>⏰</Text>
             <Text style={styles.nextTitle}>Next Dose</Text>
           </View>
-          <Text style={styles.nextValue}>
+        <Text style={styles.nextValue}>
             {nextDose ? (
               <>
                 <Text style={styles.nextTime}>{nextDose.time}</Text>
@@ -576,42 +614,52 @@ export default function Home() {
             ) : (
               "No schedule yet"
             )}
-          </Text>
-        </View>
+        </Text>
+      </View>
 
-        {/* Add medication form */}
+        {/* Device Dispense Button */}
+        {devicePIN && (
+          <TouchableOpacity 
+            style={[styles.dispenseBtn, { backgroundColor: isDark ? '#10b981' : '#10b981' }]}
+            onPress={triggerDispense}
+          >
+            <Text style={styles.dispenseBtnText}>💊 Dispense Dose Now</Text>
+          </TouchableOpacity>
+        )}
+
+      {/* Add medication form */}
         {!editingDose ? (
           <View style={[styles.formCard, { backgroundColor: colors.card }]}>
             <Text style={styles.formTitle}>➕ Add New Medication</Text>
 
-            <TextInput
+        <TextInput
               style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
-              placeholder="Medication name (e.g., Aspirin)"
+          placeholder="Medication name (e.g., Aspirin)"
               placeholderTextColor={colors.textSecondary}
-              value={medName}
-              onChangeText={setMedName}
-            />
+          value={medName}
+          onChangeText={setMedName}
+        />
 
-            <TextInput
+        <TextInput
               style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
-              placeholder="Dose (optional, e.g., 100 mg)"
+          placeholder="Dose (optional, e.g., 100 mg)"
               placeholderTextColor={colors.textSecondary}
-              value={doseText}
-              onChangeText={setDoseText}
-            />
+          value={doseText}
+          onChangeText={setDoseText}
+        />
 
-            <TextInput
+        <TextInput
               style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
-              placeholder="Time (HH:MM) e.g., 08:00"
+          placeholder="Time (HH:MM) e.g., 08:00"
               placeholderTextColor={colors.textSecondary}
-              value={time}
-              onChangeText={setTime}
-            />
+          value={time}
+          onChangeText={setTime}
+        />
 
             <TouchableOpacity style={styles.btn} onPress={addMedication} activeOpacity={0.8}>
               <Text style={styles.btnText}>Add to Schedule</Text>
-            </TouchableOpacity>
-          </View>
+        </TouchableOpacity>
+      </View>
         ) : (
           <View style={[styles.formCard, { backgroundColor: colors.card }]}>
             <Text style={[styles.formTitle, { color: colors.text }]}>✏️ Edit Medication</Text>
@@ -670,9 +718,9 @@ export default function Home() {
               <Text style={styles.emptySubtext}>Add one above to get started</Text>
             </View>
           ) : (
-            <FlatList
-              data={doses}
-              keyExtractor={(item) => item.id}
+      <FlatList
+        data={doses}
+        keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <DoseCard 
                   item={item} 
@@ -845,6 +893,23 @@ const styles = StyleSheet.create({
   doseList: {
     gap: 12,
     paddingBottom: 0,
+  },
+  dispenseBtn: {
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 8,
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dispenseBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 18,
   },
   emptyState: {
     alignItems: "center",
