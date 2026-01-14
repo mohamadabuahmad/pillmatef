@@ -1,130 +1,200 @@
 import { router } from "expo-router";
+import { get, off, onValue, ref, set } from "firebase/database";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import React, { useState } from "react";
-import {
-  Alert, Animated, Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from "react-native";
-import { auth, db } from "../../src/firebase";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { auth, db, rtdb } from "../../src/firebase";
 
 export default function LinkDevice() {
-  const [deviceId, setDeviceId] = useState("");
   const [pairCode, setPairCode] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
+  const [availableDevices, setAvailableDevices] = useState<string[]>([]);
+
+  // Listen for devices waiting for pairing
+  useEffect(() => {
+    // Only listen if user is authenticated
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      return;
+    }
+
+    const devicesRef = ref(rtdb, "devices");
+    
+    const unsubscribe = onValue(devicesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const devices = snapshot.val();
+        const waitingDevices: string[] = [];
+        
+        // Find all devices with status "WAITING_FOR_PAIR"
+        Object.keys(devices).forEach((pin) => {
+          if (devices[pin]?.status === "WAITING_FOR_PAIR") {
+            waitingDevices.push(pin);
+          }
+        });
+        
+        setAvailableDevices(waitingDevices);
+      } else {
+        setAvailableDevices([]);
+      }
+    }, (error: any) => {
+      console.error("Error listening to devices:", error);
+      // Don't show alert for permission errors - user needs to configure Firebase rules
+      if (error?.code === "PERMISSION_DENIED") {
+        console.warn("Permission denied. Please update Firebase Realtime Database rules.");
+      }
+    });
+
+    return () => {
+      off(devicesRef, "value", unsubscribe);
+    };
+  }, []);
 
   const link = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
       Alert.alert("Not signed in", "Please sign in again.");
-      router.replace("/(auth)/sign-in" as any);
+      router.replace("/(auth)/sign-in");
       return;
     }
 
-    if (!deviceId.trim() || !pairCode.trim()) {
-      Alert.alert("Missing info", "Enter Device ID and Pair Code.");
+    if (!pairCode.trim()) {
+      Alert.alert("Missing PIN", "Enter the pairing PIN displayed on your PillMate box.");
       return;
     }
 
-    await setDoc(
-      doc(db, "devices", deviceId.trim()),
-      {
+    const pin = pairCode.trim();
+    
+    // Validate PIN format (6 digits)
+    if (!/^\d{6}$/.test(pin)) {
+      Alert.alert("Invalid PIN", "Please enter a 6-digit PIN.");
+      return;
+    }
+
+    setIsLinking(true);
+
+    try {
+      // Check if device exists and is waiting for pairing
+      const deviceRef = ref(rtdb, `devices/${pin}`);
+      const snapshot = await get(deviceRef);
+
+      if (!snapshot.exists()) {
+        Alert.alert(
+          "Device not found", 
+          "No device found with this PIN.\n\nMake sure:\n• The box is powered on\n• The PIN is correctly displayed on the screen\n• The box is connected to WiFi"
+        );
+        setIsLinking(false);
+        return;
+      }
+
+      const deviceData = snapshot.val();
+      
+      if (!deviceData.status || deviceData.status !== "WAITING_FOR_PAIR") {
+        if (deviceData.status === "LINKED") {
+          if (deviceData.ownerUid === uid) {
+            Alert.alert("Already linked", "This device is already linked to your account.");
+          } else {
+            Alert.alert("Device already linked", "This device is already linked to another account.");
+          }
+        } else {
+          Alert.alert("Device not ready", `Device status: ${deviceData.status || "unknown"}. Please make sure the device is in pairing mode.`);
+        }
+        setIsLinking(false);
+        return;
+      }
+
+      // Link the device to this user in RTDB
+      const user = auth.currentUser;
+      
+      // Update device status to LINKED and add owner info
+      const updatedDeviceData = {
+        ...deviceData,
+        status: "LINKED",
         ownerUid: uid,
-        pairCode: pairCode.trim(),
-        model: "M5Stack",
+        ownerEmail: user?.email || "",
+        linkedAt: new Date().toISOString(),
+      };
+      
+      await set(deviceRef, updatedDeviceData);
+
+      // Also store device info in Firestore for easy access
+      await setDoc(doc(db, "users", uid, "devices", pin), {
+        devicePIN: pin,
+        status: "LINKED",
         linkedAt: serverTimestamp(),
-        lastSeen: serverTimestamp(),
-      },
-      { merge: true }
-    );
+        model: "M5Stack",
+      }, { merge: true });
 
-    Alert.alert("Connected", "Your PillMate box is now connected.");
-    router.replace("/(tabs)" as any);
+      Alert.alert("Success!", "Device linked successfully!", [
+        { 
+          text: "OK", 
+          onPress: () => router.replace("/(tabs)" as any) 
+        }
+      ]);
+    } catch (error: any) {
+      console.error("Link error:", error);
+      
+      let errorMessage = "Failed to link device. Please try again.";
+      let errorTitle = "Connection failed";
+      
+      if (error?.code === "PERMISSION_DENIED" || error?.message?.includes("Permission denied")) {
+        errorTitle = "Firebase Rules Not Configured";
+        errorMessage = 
+          "Permission denied. You need to update Firebase Realtime Database rules.\n\n" +
+          "Quick fix:\n" +
+          "1. Go to Firebase Console\n" +
+          "2. Realtime Database → Rules\n" +
+          "3. Use the rules from firebase-rules-simple.json\n" +
+          "4. Click Publish\n\n" +
+          "See FIREBASE_RULES_QUICK_FIX.md for details.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert(errorTitle, errorMessage);
+    } finally {
+      setIsLinking(false);
+    }
   };
-//new animation for the device image 
-const pulse = React.useRef(new Animated.Value(1)).current;
-
-React.useEffect(() => {
-  Animated.loop(
-    Animated.sequence([
-      Animated.timing(pulse, {
-        toValue: 1.15,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pulse, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ])
-  ).start();
-}, []);
 
   return (
     <View style={styles.container}>
-      {/* Avatar */}
-      <View style={styles.avatar}>
-        <Image
-          source={require("../../assets/images/default-profile.png")}
-          style={styles.avatarImage}
-        />
-      </View>
-
-      <Text style={styles.h1}>Connect your PillMate</Text>
-      <Text style={styles.subtitle}>
-        Follow the steps below to link your smart pill box
+      <Text style={styles.h1}>Connect your PillMate box</Text>
+      <Text style={styles.p}>
+        Enter the 6-digit PIN displayed on your PillMate box screen.
       </Text>
-<Animated.View
-  style={[
-    styles.wifiContainer,
-    {
-      transform: [{ scale: pulse }],
-    },
-  ]}
->
-  <Text style={styles.wifiIcon}>📶</Text>
-</Animated.View>
 
-      {/* Guide */}
-      <View style={styles.guideCard}>
-        <Text style={styles.step}>① Turn on the PillMate box</Text>
-        <Text style={styles.step}>
-          ② Connect the box to Wi-Fi using its screen
-        </Text>
-        <Text style={styles.step}>
-          ③ Enter the Device ID and Pair Code shown on the box
-        </Text>
-      </View>
+      {availableDevices.length > 0 && (
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            {availableDevices.length} device{availableDevices.length > 1 ? "s" : ""} waiting for pairing
+          </Text>
+        </View>
+      )}
 
-      {/* Form */}
-      <View style={styles.card}>
-        <TextInput
-          style={styles.input}
-          placeholder="Device ID (e.g. PM-0001)"
-          placeholderTextColor="#999"
-          value={deviceId}
-          onChangeText={setDeviceId}
-          autoCapitalize="none"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Enter 6-digit PIN"
+        value={pairCode}
+        onChangeText={setPairCode}
+        keyboardType="number-pad"
+        maxLength={6}
+        autoCapitalize="none"
+        editable={!isLinking}
+      />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Pair Code"
-          placeholderTextColor="#999"
-          value={pairCode}
-          onChangeText={setPairCode}
-          autoCapitalize="none"
-        />
-
-        <TouchableOpacity style={styles.btn} onPress={link}>
+      <TouchableOpacity
+        style={[styles.btn, isLinking && styles.btnDisabled]}
+        onPress={link}
+        disabled={isLinking}
+      >
+        {isLinking ? (
+          <ActivityIndicator color="white" />
+        ) : (
           <Text style={styles.btnText}>Link Device</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity onPress={() => router.replace("/(tabs)" as any)}>
+      <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
         <Text style={styles.skip}>Skip for now</Text>
       </TouchableOpacity>
     </View>
