@@ -314,8 +314,8 @@ import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query
 import { ref, set } from "firebase/database";
 
 import DoseCard from "../../components/DoseCard";
-import Sidebar from "../../components/Sidebar";
 import type { Dose } from "../../constants/types";
+import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
 import { auth, db, rtdb } from "../../src/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -328,24 +328,11 @@ import {
 
 export default function Home() {
   const [doses, setDoses] = useState<Dose[]>([]);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
   const { isDark } = useTheme();
   const [userName, setUserName] = useState<string | null>(null);
   const [devicePIN, setDevicePIN] = useState<string | null>(null);
 
-  const colors = isDark
-    ? {
-        background: '#1a1a1a',
-        card: '#2a2a2a',
-        text: '#fff',
-        textSecondary: '#aaa',
-      }
-    : {
-        background: '#f8f9fa',
-        card: '#fff',
-        text: '#1a1a1a',
-        textSecondary: '#666',
-      };
+  const colors = getThemeColors(isDark);
 
   // Form state
   const [medName, setMedName] = useState("");
@@ -579,7 +566,6 @@ export default function Home() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -587,20 +573,16 @@ export default function Home() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.menuBtn} onPress={() => setSidebarVisible(true)}>
-            <Text style={[styles.menuBtnText, { color: colors.text }]}>☰</Text>
-        </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+            <Text style={[styles.greeting, { color: colors.textPrimary }]}>
               Hello{userName ? `, ${userName}` : ""}! 👋
             </Text>
-            <Text style={[styles.h1, { color: colors.text }]}>Your Medications</Text>
+            <Text style={[styles.h1, { color: colors.textPrimary }]}>Your Medications</Text>
           </View>
-          <View style={styles.menuBtn} />
       </View>
 
         {/* Next Dose Card */}
-        <View style={[styles.nextCard, { backgroundColor: isDark ? '#6366f1' : '#6366f1' }]}>
+        <View style={[styles.nextCard, { backgroundColor: colors.primary }]}>
           <View style={styles.nextCardHeader}>
             <Text style={styles.nextCardIcon}>⏰</Text>
             <Text style={styles.nextTitle}>Next Dose</Text>
@@ -620,8 +602,9 @@ export default function Home() {
         {/* Device Dispense Button */}
         {devicePIN && (
           <TouchableOpacity 
-            style={[styles.dispenseBtn, { backgroundColor: isDark ? '#10b981' : '#10b981' }]}
+            style={[styles.dispenseBtn, { backgroundColor: colors.success }]}
             onPress={triggerDispense}
+            activeOpacity={0.8}
           >
             <Text style={styles.dispenseBtnText}>💊 Dispense Dose Now</Text>
           </TouchableOpacity>
@@ -629,68 +612,68 @@ export default function Home() {
 
       {/* Add medication form */}
         {!editingDose ? (
-          <View style={[styles.formCard, { backgroundColor: colors.card }]}>
-            <Text style={styles.formTitle}>➕ Add New Medication</Text>
+          <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Add New Medication</Text>
 
         <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
           placeholder="Medication name (e.g., Aspirin)"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
           value={medName}
           onChangeText={setMedName}
         />
 
         <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
           placeholder="Dose (optional, e.g., 100 mg)"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
           value={doseText}
           onChangeText={setDoseText}
         />
 
         <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
           placeholder="Time (HH:MM) e.g., 08:00"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
           value={time}
           onChangeText={setTime}
         />
 
-            <TouchableOpacity style={styles.btn} onPress={addMedication} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={addMedication} activeOpacity={0.8}>
               <Text style={styles.btnText}>Add to Schedule</Text>
         </TouchableOpacity>
       </View>
         ) : (
-          <View style={[styles.formCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.formTitle, { color: colors.text }]}>✏️ Edit Medication</Text>
+          <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Edit Medication</Text>
 
             <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
               placeholder="Medication name (e.g., Aspirin)"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
               value={editMedName}
               onChangeText={setEditMedName}
             />
 
             <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
               placeholder="Dose (optional, e.g., 100 mg)"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
               value={editDoseText}
               onChangeText={setEditDoseText}
             />
 
             <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#333' : '#f5f5f5', color: colors.text, borderColor: isDark ? '#444' : '#e8e8e8' }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
               placeholder="Time (HH:MM) e.g., 08:00"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textTertiary}
               value={editTime}
               onChangeText={setEditTime}
             />
 
             <View style={styles.editButtons}>
               <TouchableOpacity 
-                style={[styles.btn, styles.cancelBtn]} 
+                style={[styles.btn, styles.cancelBtn, { backgroundColor: colors.border }]} 
                 onPress={() => {
                   setEditingDose(null);
                   setEditMedName("");
@@ -699,9 +682,9 @@ export default function Home() {
                 }} 
                 activeOpacity={0.8}
               >
-                <Text style={[styles.btnText, styles.cancelBtnText]}>Cancel</Text>
+                <Text style={[styles.btnText, styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btn} onPress={handleSaveEdit} activeOpacity={0.8}>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={handleSaveEdit} activeOpacity={0.8}>
                 <Text style={styles.btnText}>Save Changes</Text>
               </TouchableOpacity>
             </View>
@@ -710,12 +693,12 @@ export default function Home() {
 
         {/* Schedule Section */}
         <View style={styles.scheduleSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Schedule</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Your Schedule</Text>
           {doses.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyText}>No medications scheduled yet</Text>
-              <Text style={styles.emptySubtext}>Add one above to get started</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No medications scheduled yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Add one above to get started</Text>
             </View>
           ) : (
       <FlatList
@@ -748,187 +731,150 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: DesignSystem.layout.containerPadding,
+    paddingBottom: DesignSystem.spacing['3xl'],
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 24,
-    marginTop: 10,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuBtnText: {
-    fontSize: 28,
-    fontWeight: "600",
-    color: "#1a1a1a",
+    marginBottom: DesignSystem.spacing.xl,
+    marginTop: DesignSystem.spacing.sm,
   },
   headerContent: {
-    flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   greeting: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 4,
+    fontSize: DesignSystem.typography.fontSize.lg,
+    marginBottom: DesignSystem.spacing.xs,
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
+    opacity: 1,
   },
   h1: { 
-    fontSize: 32, 
-    fontWeight: "800",
-    color: "#1a1a1a",
-    letterSpacing: -0.5,
+    fontSize: DesignSystem.typography.fontSize['3xl'], 
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
+    letterSpacing: DesignSystem.typography.letterSpacing.tight,
   },
 
   nextCard: { 
-    backgroundColor: "#6366f1",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    shadowColor: "#6366f1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: DesignSystem.layout.cardPadding,
+    borderRadius: DesignSystem.borderRadius.lg,
+    marginBottom: DesignSystem.spacing.lg,
+    ...DesignSystem.shadows.md,
   },
   nextCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: DesignSystem.spacing.md,
   },
   nextCardIcon: {
-    fontSize: 24,
-    marginRight: 8,
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    marginRight: DesignSystem.spacing.sm,
   },
   nextTitle: { 
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
-    opacity: 0.9,
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    fontSize: DesignSystem.typography.fontSize.sm,
+    opacity: 0.95,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: DesignSystem.typography.letterSpacing.wide,
   },
   nextValue: { 
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
     color: "#fff",
   },
   nextTime: {
-    fontSize: 28,
-    fontWeight: "900",
+    fontSize: DesignSystem.typography.fontSize['3xl'],
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
   },
   nextMedName: {
-    fontSize: 20,
+    fontSize: DesignSystem.typography.fontSize.xl,
     opacity: 0.95,
   },
 
   formCard: { 
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: DesignSystem.layout.cardPadding,
+    borderRadius: DesignSystem.borderRadius.lg,
+    marginBottom: DesignSystem.spacing.xl,
+    ...DesignSystem.shadows.base,
   },
   formTitle: { 
-    fontWeight: "800",
-    marginBottom: 16,
-    fontSize: 18,
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
+    marginBottom: DesignSystem.spacing.base,
+    fontSize: DesignSystem.typography.fontSize.lg,
   },
   input: { 
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    fontSize: 16,
+    padding: DesignSystem.layout.inputPadding,
+    borderRadius: DesignSystem.borderRadius.base,
+    marginBottom: DesignSystem.spacing.md,
+    fontSize: DesignSystem.typography.fontSize.base,
     borderWidth: 1,
+    fontWeight: DesignSystem.typography.fontWeight.regular,
   },
   btn: { 
-    backgroundColor: "#6366f1",
-    padding: 16,
-    borderRadius: 12,
+    padding: DesignSystem.layout.buttonPadding,
+    borderRadius: DesignSystem.borderRadius.base,
     alignItems: "center",
-    marginTop: 8,
-    shadowColor: "#6366f1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.md,
     flex: 1,
   },
   btnText: { 
     color: "#fff",
-    fontWeight: "800",
-    fontSize: 16,
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
+    fontSize: DesignSystem.typography.fontSize.base,
   },
   editButtons: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
+    gap: DesignSystem.spacing.md,
+    marginTop: DesignSystem.spacing.sm,
   },
   cancelBtn: {
-    backgroundColor: "#f5f5f5",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
+    ...DesignSystem.shadows.sm,
   },
   cancelBtnText: {
-    color: "#666",
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
   },
 
   scheduleSection: {
-    marginTop: 8,
+    marginTop: DesignSystem.spacing.sm,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1a1a1a",
-    marginBottom: 16,
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
+    marginBottom: DesignSystem.spacing.base,
   },
   doseList: {
-    gap: 12,
+    gap: DesignSystem.spacing.md,
     paddingBottom: 0,
   },
   dispenseBtn: {
-    padding: 18,
-    borderRadius: 12,
+    padding: DesignSystem.spacing.lg,
+    borderRadius: DesignSystem.borderRadius.base,
     alignItems: "center",
-    marginTop: 12,
-    marginBottom: 8,
-    shadowColor: "#10b981",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: DesignSystem.spacing.md,
+    marginBottom: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.md,
   },
   dispenseBtnText: {
     color: "#fff",
-    fontWeight: "800",
-    fontSize: 18,
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
+    fontSize: DesignSystem.typography.fontSize.lg,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingVertical: DesignSystem.spacing['3xl'],
+    paddingHorizontal: DesignSystem.spacing.lg,
   },
   emptyIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: DesignSystem.spacing.base,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#666",
-    marginBottom: 8,
+    fontSize: DesignSystem.typography.fontSize.lg,
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    marginBottom: DesignSystem.spacing.sm,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#999",
+    fontSize: DesignSystem.typography.fontSize.sm,
   },
 });

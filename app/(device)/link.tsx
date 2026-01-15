@@ -68,7 +68,7 @@
 
 import { router } from "expo-router";
 import { get, off, onValue, ref, set } from "firebase/database";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { auth, db, rtdb } from "../../src/firebase";
@@ -77,6 +77,36 @@ export default function LinkDevice() {
   const [pairCode, setPairCode] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const [availableDevices, setAvailableDevices] = useState<string[]>([]);
+  const [isChecking, setIsChecking] = useState(true);
+
+  // Check if user already has a linked device on mount
+  useEffect(() => {
+    const checkForLinkedDevice = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        router.replace("/(auth)/sign-in" as any);
+        return;
+      }
+
+      try {
+        const devicesRef = collection(db, "users", uid, "devices");
+        const snapshot = await getDocs(devicesRef);
+        
+        if (!snapshot.empty) {
+          // User already has a linked device, redirect to home
+          router.replace("/(tabs)" as any);
+        } else {
+          // No device linked, show the link page
+          setIsChecking(false);
+        }
+      } catch (error) {
+        console.error("Error checking for linked device:", error);
+        setIsChecking(false);
+      }
+    };
+
+    checkForLinkedDevice();
+  }, []);
 
   // Listen for devices waiting for pairing
   useEffect(() => {
@@ -224,6 +254,16 @@ export default function LinkDevice() {
     }
   };
 
+  // Show loading while checking for existing device
+  if (isChecking) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#111" />
+        <Text style={styles.loadingText}>Checking for linked device...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.h1}>Connect your PillMate box</Text>
@@ -327,5 +367,10 @@ const styles = StyleSheet.create({
     color: "#111",
     fontWeight: "700",
     textAlign: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    color: "#666",
+    fontSize: 14,
   },
 });

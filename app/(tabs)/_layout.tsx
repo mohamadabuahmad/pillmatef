@@ -60,13 +60,86 @@
 
 
 
+// import { Tabs } from "expo-router";
+
+// export default function TabsLayout() {
+//   return (
+//     <Tabs screenOptions={{ headerShown: true }}>
+//       <Tabs.Screen name="index" options={{ title: "Home" }} />
+//       <Tabs.Screen name="chat" options={{ title: "AI Chat" }} />
+//     </Tabs>
+//   );
+// }
+
+
+
+import { FontAwesome } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { Platform } from "react-native";
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: true }}>
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="chat" options={{ title: "AI Chat" }} />
+    <Tabs 
+      screenOptions={{ 
+        headerShown: false,
+        tabBarActiveTintColor: "#6366f1",
+        tabBarInactiveTintColor: "#999",
+        tabBarStyle: {
+          backgroundColor: "#fff",
+          borderTopWidth: 1,
+          borderTopColor: "#e0e0e0",
+          height: Platform.OS === 'ios' ? 90 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+          paddingTop: 10,
+          elevation: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 4,
+        },
+      }}
+    >
+      <Tabs.Screen 
+        name="index" 
+        options={{ 
+          title: "Home",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="home" size={24} color={color} />
+          ),
+        }} 
+      />
+      <Tabs.Screen 
+        name="chat" 
+        options={{ 
+          title: "Chat",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="comments" size={24} color={color} />
+          ),
+        }} 
+      />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ 
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="user" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen 
+        name="settings" 
+        options={{ 
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="cog" size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
