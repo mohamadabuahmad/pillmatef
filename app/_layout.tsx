@@ -89,16 +89,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="splash" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(device)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="change-password" />
-          <Stack.Screen name="allergy-form" />
-        </Stack>
+        <Stack screenOptions={{ headerShown: false }} />
       </LanguageProvider>
     </ThemeProvider>
   );
