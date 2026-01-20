@@ -307,17 +307,16 @@
 
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from "react-native";
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { signOut } from "firebase/auth";
-import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { ref, set } from "firebase/database";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import DoseCard from "../../components/DoseCard";
-import type { Dose } from "../../constants/types";
 import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
-import { auth, db, rtdb } from "../../src/firebase";
+import type { Dose } from "../../constants/types";
 import { useTheme } from "../../contexts/ThemeContext";
+import { auth, db, rtdb } from "../../src/firebase";
 
 import {
   cancelAllDoseNotifications,
@@ -325,6 +324,8 @@ import {
   parseHHMM,
   scheduleDoseNotification,
 } from "../../hooks/notifications";
+import { useMedicationSafety } from "../../hooks/useMedicationSafety";
+import { useMedicationSuggestions } from "../../hooks/useMedicationSuggestions";
 
 export default function Home() {
   const [doses, setDoses] = useState<Dose[]>([]);
@@ -336,14 +337,29 @@ export default function Home() {
 
   // Form state
   const [medName, setMedName] = useState("");
-  const [doseText, setDoseText] = useState("");
-  const [time, setTime] = useState("08:00");
+  const [doseNumber, setDoseNumber] = useState("");
+  const [selectedHour, setSelectedHour] = useState(8);
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
+  const [blockDispense, setBlockDispense] = useState(false);
+
+  // AI Hooks
+  const { checkAllergy, checkInteraction, getUserAllergies, checking: safetyChecking } = useMedicationSafety();
+  const { suggestions: aiSuggestions, loading: suggestionsLoading } = useMedicationSuggestions(
+    medName,
+    medName.trim().length >= 2 && showSuggestions
+  );
 
   // Edit state
   const [editingDose, setEditingDose] = useState<Dose | null>(null);
   const [editMedName, setEditMedName] = useState("");
-  const [editDoseText, setEditDoseText] = useState("");
-  const [editTime, setEditTime] = useState("08:00");
+  const [editDoseNumber, setEditDoseNumber] = useState("");
+  const [editSelectedHour, setEditSelectedHour] = useState(8);
+  const [editSelectedMinute, setEditSelectedMinute] = useState(0);
+  const [showEditTimePicker, setShowEditTimePicker] = useState(false);
 
   useEffect(() => {
     ensureNotificationPermissions();
@@ -420,29 +436,116 @@ export default function Home() {
 
   const nextDose = useMemo(() => doses.find((d) => d.enabled) ?? null, [doses]);
 
+  const formatTime = (hour: number, minute: number) => {
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
+
+  const parseTime = (timeStr: string) => {
+    const [hour, minute] = timeStr.split(':').map(Number);
+    return { hour: hour || 8, minute: minute || 0 };
+  };
+
   const addMedication = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
 
     const name = medName.trim();
-    const d = doseText.trim();
-    const t = time.trim();
+    const dose = doseNumber.trim();
+    const timeStr = formatTime(selectedHour, selectedMinute);
 
     if (!name) return Alert.alert("Missing", "Enter medication name.");
-    if (!t.match(/^\d{2}:\d{2}$/)) return Alert.alert("Time format", "Use HH:MM (example 08:00).");
+    if (!dose || isNaN(Number(dose)) || Number(dose) <= 0) {
+      return Alert.alert("Invalid dose", "Enter a valid number of pills.");
+    }
 
+    // 1. CHECK ALLERGIES
+    const userAllergies = await getUserAllergies(uid);
+    if (userAllergies.length > 0) {
+      const allergyCheck = await checkAllergy(name, userAllergies);
+
+      if (allergyCheck.hasAllergy) {
+        const shouldProceed = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            "⚠️ Allergy Warning",
+            `${allergyCheck.message}\n\nSeverity: ${allergyCheck.severity.toUpperCase()}`,
+            [
+              {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => resolve(false),
+              },
+              {
+                text: allergyCheck.shouldBlock ? "OK" : "Add Anyway",
+                onPress: () => resolve(!allergyCheck.shouldBlock),
+                style: allergyCheck.shouldBlock ? "destructive" : "default",
+              },
+            ]
+          );
+        });
+
+        if (!shouldProceed) {
+          setBlockDispense(allergyCheck.shouldBlock);
+          setSafetyWarning(allergyCheck.message);
+          return;
+        }
+      }
+    }
+
+    // 2. CHECK DRUG INTERACTIONS WITH EXISTING MEDICATIONS
+    for (const existingDose of doses) {
+      if (!existingDose.enabled) continue;
+
+      const interaction = await checkInteraction(
+        name,
+        existingDose.medName,
+        timeStr,
+        existingDose.time
+      );
+
+      if (!interaction.canTakeTogether || interaction.recommendation === "avoid") {
+        Alert.alert(
+          "🚫 Drug Interaction Warning",
+          `${interaction.message}\n\nCannot take "${name}" with "${existingDose.medName}".`,
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      if (interaction.recommendation === "space_hours" && interaction.timeGapRequired > 0) {
+        const timeGapWarning = `⚠️ Time Gap Required\n\n${interaction.message}\n\nYou need at least ${interaction.timeGapRequired} hours between "${name}" and "${existingDose.medName}".`;
+
+        const shouldProceed = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            "Time Gap Required",
+            timeGapWarning,
+            [
+              { text: "Cancel", onPress: () => resolve(false) },
+              { text: "Adjust Time", onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+        if (!shouldProceed) return;
+      }
+    }
+
+    // 3. ADD MEDICATION IF ALL CHECKS PASS
     try {
       await addDoc(collection(db, "users", uid, "schedule"), {
         medName: name,
-        dose: d || "",
-        time: t,
+        dose: dose,
+        time: timeStr,
         enabled: true,
         createdAt: serverTimestamp(),
       });
 
       setMedName("");
-      setDoseText("");
-      setTime("08:00");
+      setDoseNumber("");
+      setSelectedHour(8);
+      setSelectedMinute(0);
+      setShowSuggestions(false);
+      setSafetyWarning(null);
+      setBlockDispense(false);
     } catch (e: any) {
       Alert.alert("Failed to add", e?.message ?? "Unknown error");
     }
@@ -451,8 +554,10 @@ export default function Home() {
   const handleEdit = (dose: Dose) => {
     setEditingDose(dose);
     setEditMedName(dose.medName);
-    setEditDoseText(dose.dose || "");
-    setEditTime(dose.time);
+    setEditDoseNumber(dose.dose || "");
+    const { hour, minute } = parseTime(dose.time);
+    setEditSelectedHour(hour);
+    setEditSelectedMinute(minute);
   };
 
   const handleSaveEdit = async () => {
@@ -462,15 +567,15 @@ export default function Home() {
     if (!uid) return;
 
     const name = editMedName.trim();
-    const d = editDoseText.trim();
-    const t = editTime.trim();
+    const dose = editDoseNumber.trim();
+    const timeStr = formatTime(editSelectedHour, editSelectedMinute);
 
     if (!name) {
       Alert.alert("Missing", "Enter medication name.");
       return;
     }
-    if (!t.match(/^\d{2}:\d{2}$/)) {
-      Alert.alert("Time format", "Use HH:MM (example 08:00).");
+    if (!dose || isNaN(Number(dose)) || Number(dose) <= 0) {
+      Alert.alert("Invalid dose", "Enter a valid number of pills.");
       return;
     }
 
@@ -478,14 +583,15 @@ export default function Home() {
       const doseRef = doc(db, "users", uid, "schedule", editingDose.id);
       await updateDoc(doseRef, {
         medName: name,
-        dose: d || "",
-        time: t,
+        dose: dose,
+        time: timeStr,
       });
 
       setEditingDose(null);
       setEditMedName("");
-      setEditDoseText("");
-      setEditTime("08:00");
+      setEditDoseNumber("");
+      setEditSelectedHour(8);
+      setEditSelectedMinute(0);
     } catch (e: any) {
       Alert.alert("Failed to update", e?.message ?? "Unknown error");
     }
@@ -554,6 +660,37 @@ export default function Home() {
       return;
     }
 
+    // Check if dispense is blocked
+    if (blockDispense) {
+      Alert.alert(
+        "⚠️ Dispense Blocked",
+        safetyWarning || "This medication may cause an allergic reaction. Dispense blocked for your safety.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Check allergies before dispensing
+    const nextDose = doses.find((d) => d.enabled);
+    if (nextDose) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const userAllergies = await getUserAllergies(uid);
+        if (userAllergies.length > 0) {
+          const allergyCheck = await checkAllergy(nextDose.medName, userAllergies);
+
+          if (allergyCheck.hasAllergy && allergyCheck.shouldBlock) {
+            Alert.alert(
+              "🚫 Dispense Blocked",
+              `${allergyCheck.message}\n\nDispense blocked for your safety.`,
+              [{ text: "OK" }]
+            );
+            return;
+          }
+        }
+      }
+    }
+
     try {
       const dispenseRef = ref(rtdb, `devices/${devicePIN}/dispense`);
       await set(dispenseRef, true);
@@ -564,9 +701,15 @@ export default function Home() {
     }
   };
 
+  // Handle suggestion selection
+  const handleSuggestionSelect = (suggestion: string) => {
+    setMedName(suggestion);
+    setShowSuggestions(false);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -579,7 +722,7 @@ export default function Home() {
             </Text>
             <Text style={[styles.h1, { color: colors.textPrimary }]}>Your Medications</Text>
           </View>
-      </View>
+        </View>
 
         {/* Next Dose Card */}
         <View style={[styles.nextCard, { backgroundColor: colors.primary }]}>
@@ -587,7 +730,7 @@ export default function Home() {
             <Text style={styles.nextCardIcon}>⏰</Text>
             <Text style={styles.nextTitle}>Next Dose</Text>
           </View>
-        <Text style={styles.nextValue}>
+          <Text style={styles.nextValue}>
             {nextDose ? (
               <>
                 <Text style={styles.nextTime}>{nextDose.time}</Text>
@@ -596,12 +739,23 @@ export default function Home() {
             ) : (
               "No schedule yet"
             )}
-        </Text>
-      </View>
+          </Text>
+        </View>
+
+        {/* Safety Warning */}
+        {blockDispense && safetyWarning && (
+          <View style={[styles.safetyWarning, { backgroundColor: '#fee2e2', borderColor: '#ef4444' }]}>
+            <Text style={styles.safetyWarningIcon}>🚫</Text>
+            <View style={styles.safetyWarningContent}>
+              <Text style={styles.safetyWarningTitle}>Dispense Blocked</Text>
+              <Text style={styles.safetyWarningText}>{safetyWarning}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Device Dispense Button */}
         {devicePIN && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.dispenseBtn, { backgroundColor: colors.success }]}
             onPress={triggerDispense}
             activeOpacity={0.8}
@@ -610,39 +764,95 @@ export default function Home() {
           </TouchableOpacity>
         )}
 
-      {/* Add medication form */}
+        {/* Add medication form */}
         {!editingDose ? (
           <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Add New Medication</Text>
 
-        <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-          placeholder="Medication name (e.g., Aspirin)"
-              placeholderTextColor={colors.textTertiary}
-          value={medName}
-          onChangeText={setMedName}
-        />
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                placeholder="Medication name (e.g., Aspirin)"
+                placeholderTextColor={colors.textTertiary}
+                value={medName}
+                onChangeText={(text) => {
+                  setMedName(text);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (medName.trim().length >= 2) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
+              />
 
-        <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-          placeholder="Dose (optional, e.g., 100 mg)"
-              placeholderTextColor={colors.textTertiary}
-          value={doseText}
-          onChangeText={setDoseText}
-        />
+              {/* Show loading indicator */}
+              {suggestionsLoading && medName.trim().length >= 2 && (
+                <View style={styles.suggestionsLoading}>
+                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                    Finding medications...
+                  </Text>
+                </View>
+              )}
 
-        <TextInput
+              {/* Show AI suggestions dropdown */}
+              {showSuggestions && aiSuggestions.length > 0 && !suggestionsLoading && (
+                <View style={[styles.suggestionsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <ScrollView
+                    style={styles.suggestionsList}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                  >
+                    {aiSuggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.suggestionItem,
+                          { backgroundColor: colors.surface },
+                          index === aiSuggestions.length - 1 && styles.suggestionItemLast
+                        ]}
+                        onPress={() => handleSuggestionSelect(suggestion)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.suggestionText, { color: colors.textPrimary }]}>
+                          💊 {suggestion}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-          placeholder="Time (HH:MM) e.g., 08:00"
+              placeholder="Number of pills (e.g., 2)"
               placeholderTextColor={colors.textTertiary}
-          value={time}
-          onChangeText={setTime}
-        />
+              value={doseNumber}
+              onChangeText={setDoseNumber}
+              keyboardType="numeric"
+            />
+
+            <TouchableOpacity
+              style={[styles.input, styles.timePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => {
+                setIsEditingTime(false);
+                setShowTimePicker(true);
+              }}
+            >
+              <Text style={[styles.timePickerText, { color: colors.textPrimary }]}>
+                Time: {formatTime(selectedHour, selectedMinute)}
+              </Text>
+              <Text style={[styles.timePickerArrow, { color: colors.textSecondary }]}>▼</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={addMedication} activeOpacity={0.8}>
               <Text style={styles.btnText}>Add to Schedule</Text>
-        </TouchableOpacity>
-      </View>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Edit Medication</Text>
@@ -657,29 +867,36 @@ export default function Home() {
 
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="Dose (optional, e.g., 100 mg)"
+              placeholder="Number of pills (e.g., 2)"
               placeholderTextColor={colors.textTertiary}
-              value={editDoseText}
-              onChangeText={setEditDoseText}
+              value={editDoseNumber}
+              onChangeText={setEditDoseNumber}
+              keyboardType="numeric"
             />
 
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="Time (HH:MM) e.g., 08:00"
-              placeholderTextColor={colors.textTertiary}
-              value={editTime}
-              onChangeText={setEditTime}
-            />
+            <TouchableOpacity
+              style={[styles.input, styles.timePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => {
+                setIsEditingTime(true);
+                setShowEditTimePicker(true);
+              }}
+            >
+              <Text style={[styles.timePickerText, { color: colors.textPrimary }]}>
+                Time: {formatTime(editSelectedHour, editSelectedMinute)}
+              </Text>
+              <Text style={[styles.timePickerArrow, { color: colors.textSecondary }]}>▼</Text>
+            </TouchableOpacity>
 
             <View style={styles.editButtons}>
-              <TouchableOpacity 
-                style={[styles.btn, styles.cancelBtn, { backgroundColor: colors.border }]} 
+              <TouchableOpacity
+                style={[styles.btn, styles.cancelBtn, { backgroundColor: colors.border }]}
                 onPress={() => {
                   setEditingDose(null);
                   setEditMedName("");
-                  setEditDoseText("");
-                  setEditTime("08:00");
-                }} 
+                  setEditDoseNumber("");
+                  setEditSelectedHour(8);
+                  setEditSelectedMinute(0);
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.btnText, styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
@@ -701,12 +918,12 @@ export default function Home() {
               <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Add one above to get started</Text>
             </View>
           ) : (
-      <FlatList
-        data={doses}
-        keyExtractor={(item) => item.id}
+            <FlatList
+              data={doses}
+              keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <DoseCard 
-                  item={item} 
+                <DoseCard
+                  item={item}
                   onNotify={onNotify}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
@@ -719,12 +936,122 @@ export default function Home() {
           )}
         </View>
       </ScrollView>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker || showEditTimePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowTimePicker(false);
+          setShowEditTimePicker(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Time</Text>
+
+            <View style={styles.pickerContainer}>
+              {/* Hours Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={[styles.pickerLabel, { color: colors.textSecondary }]}>Hour</Text>
+                <ScrollView
+                  style={styles.pickerScrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContent}
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={[
+                        styles.pickerItem,
+                        (isEditingTime ? editSelectedHour : selectedHour) === i && styles.pickerItemSelected,
+                        { backgroundColor: (isEditingTime ? editSelectedHour : selectedHour) === i ? colors.primary : 'transparent' }
+                      ]}
+                      onPress={() => {
+                        if (isEditingTime) {
+                          setEditSelectedHour(i);
+                        } else {
+                          setSelectedHour(i);
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        { color: (isEditingTime ? editSelectedHour : selectedHour) === i ? '#fff' : colors.textPrimary }
+                      ]}>
+                        {i.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Minutes Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={[styles.pickerLabel, { color: colors.textSecondary }]}>Minute</Text>
+                <ScrollView
+                  style={styles.pickerScrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContent}
+                >
+                  {Array.from({ length: 60 }, (_, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={[
+                        styles.pickerItem,
+                        (isEditingTime ? editSelectedMinute : selectedMinute) === i && styles.pickerItemSelected,
+                        { backgroundColor: (isEditingTime ? editSelectedMinute : selectedMinute) === i ? colors.primary : 'transparent' }
+                      ]}
+                      onPress={() => {
+                        if (isEditingTime) {
+                          setEditSelectedMinute(i);
+                        } else {
+                          setSelectedMinute(i);
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        { color: (isEditingTime ? editSelectedMinute : selectedMinute) === i ? '#fff' : colors.textPrimary }
+                      ]}>
+                        {i.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel, { backgroundColor: colors.border }]}
+                onPress={() => {
+                  setShowTimePicker(false);
+                  setShowEditTimePicker(false);
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setShowTimePicker(false);
+                  setShowEditTimePicker(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
   },
   scrollView: {
@@ -747,13 +1074,13 @@ const styles = StyleSheet.create({
     fontWeight: DesignSystem.typography.fontWeight.semibold,
     opacity: 1,
   },
-  h1: { 
-    fontSize: DesignSystem.typography.fontSize['3xl'], 
+  h1: {
+    fontSize: DesignSystem.typography.fontSize['3xl'],
     fontWeight: DesignSystem.typography.fontWeight.extrabold,
     letterSpacing: DesignSystem.typography.letterSpacing.tight,
   },
 
-  nextCard: { 
+  nextCard: {
     padding: DesignSystem.layout.cardPadding,
     borderRadius: DesignSystem.borderRadius.lg,
     marginBottom: DesignSystem.spacing.lg,
@@ -768,7 +1095,7 @@ const styles = StyleSheet.create({
     fontSize: DesignSystem.typography.fontSize['2xl'],
     marginRight: DesignSystem.spacing.sm,
   },
-  nextTitle: { 
+  nextTitle: {
     color: "#fff",
     fontWeight: DesignSystem.typography.fontWeight.bold,
     fontSize: DesignSystem.typography.fontSize.sm,
@@ -776,7 +1103,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: DesignSystem.typography.letterSpacing.wide,
   },
-  nextValue: { 
+  nextValue: {
     fontSize: DesignSystem.typography.fontSize['2xl'],
     fontWeight: DesignSystem.typography.fontWeight.extrabold,
     color: "#fff",
@@ -790,18 +1117,18 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
 
-  formCard: { 
+  formCard: {
     padding: DesignSystem.layout.cardPadding,
     borderRadius: DesignSystem.borderRadius.lg,
     marginBottom: DesignSystem.spacing.xl,
     ...DesignSystem.shadows.base,
   },
-  formTitle: { 
+  formTitle: {
     fontWeight: DesignSystem.typography.fontWeight.extrabold,
     marginBottom: DesignSystem.spacing.base,
     fontSize: DesignSystem.typography.fontSize.lg,
   },
-  input: { 
+  input: {
     padding: DesignSystem.layout.inputPadding,
     borderRadius: DesignSystem.borderRadius.base,
     marginBottom: DesignSystem.spacing.md,
@@ -809,7 +1136,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     fontWeight: DesignSystem.typography.fontWeight.regular,
   },
-  btn: { 
+  btn: {
     padding: DesignSystem.layout.buttonPadding,
     borderRadius: DesignSystem.borderRadius.base,
     alignItems: "center",
@@ -817,7 +1144,7 @@ const styles = StyleSheet.create({
     ...DesignSystem.shadows.md,
     flex: 1,
   },
-  btnText: { 
+  btnText: {
     color: "#fff",
     fontWeight: DesignSystem.typography.fontWeight.extrabold,
     fontSize: DesignSystem.typography.fontSize.base,
@@ -875,6 +1202,164 @@ const styles = StyleSheet.create({
     marginBottom: DesignSystem.spacing.sm,
   },
   emptySubtext: {
+    fontSize: DesignSystem.typography.fontSize.sm,
+  },
+  timePickerButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: DesignSystem.layout.inputPadding,
+  },
+  timePickerText: {
+    fontSize: DesignSystem.typography.fontSize.base,
+    fontWeight: DesignSystem.typography.fontWeight.medium,
+  },
+  timePickerArrow: {
+    fontSize: DesignSystem.typography.fontSize.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: DesignSystem.borderRadius.xl,
+    borderTopRightRadius: DesignSystem.borderRadius.xl,
+    padding: DesignSystem.layout.cardPadding,
+    paddingBottom: DesignSystem.spacing['2xl'],
+    maxHeight: "70%",
+  },
+  modalTitle: {
+    fontSize: DesignSystem.typography.fontSize.xl,
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    marginBottom: DesignSystem.spacing.lg,
+    textAlign: "center",
+  },
+  pickerContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: DesignSystem.spacing.lg,
+    height: 300,
+  },
+  pickerColumn: {
+    flex: 1,
+    alignItems: "center",
+    marginHorizontal: DesignSystem.spacing.sm,
+  },
+  pickerLabel: {
+    fontSize: DesignSystem.typography.fontSize.sm,
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
+    marginBottom: DesignSystem.spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: DesignSystem.typography.letterSpacing.wide,
+  },
+  pickerScrollView: {
+    flex: 1,
+    width: "100%",
+  },
+  pickerContent: {
+    paddingVertical: DesignSystem.spacing.md,
+  },
+  pickerItem: {
+    paddingVertical: DesignSystem.spacing.md,
+    paddingHorizontal: DesignSystem.spacing.lg,
+    borderRadius: DesignSystem.borderRadius.base,
+    marginVertical: DesignSystem.spacing.xs,
+    alignItems: "center",
+    minWidth: 80,
+  },
+  pickerItemSelected: {
+    opacity: 1,
+  },
+  pickerItemText: {
+    fontSize: DesignSystem.typography.fontSize.lg,
+    fontWeight: DesignSystem.typography.fontWeight.medium,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: DesignSystem.spacing.md,
+    marginTop: DesignSystem.spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+    padding: DesignSystem.layout.buttonPadding,
+    borderRadius: DesignSystem.borderRadius.base,
+    alignItems: "center",
+  },
+  modalButtonCancel: {
+    ...DesignSystem.shadows.sm,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    fontSize: DesignSystem.typography.fontSize.base,
+  },
+  inputContainer: {
+    position: 'relative',
+    marginBottom: DesignSystem.spacing.md,
+    zIndex: 1,
+  },
+  safetyWarning: {
+    flexDirection: 'row',
+    padding: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.base,
+    marginBottom: DesignSystem.spacing.md,
+    borderWidth: 2,
+    alignItems: 'flex-start',
+  },
+  safetyWarningIcon: {
+    fontSize: 24,
+    marginRight: DesignSystem.spacing.sm,
+  },
+  safetyWarningContent: {
+    flex: 1,
+  },
+  safetyWarningTitle: {
+    fontSize: DesignSystem.typography.fontSize.base,
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    color: '#991b1b',
+    marginBottom: DesignSystem.spacing.xs,
+  },
+  safetyWarningText: {
+    fontSize: DesignSystem.typography.fontSize.sm,
+    color: '#7f1d1d',
+    lineHeight: DesignSystem.typography.lineHeight.relaxed * DesignSystem.typography.fontSize.sm,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    borderRadius: DesignSystem.borderRadius.base,
+    borderWidth: 1,
+    marginTop: DesignSystem.spacing.xs,
+    ...DesignSystem.shadows.lg,
+    zIndex: 1000,
+  },
+  suggestionsList: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: DesignSystem.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionItemLast: {
+    borderBottomWidth: 0,
+  },
+  suggestionText: {
+    fontSize: DesignSystem.typography.fontSize.base,
+    fontWeight: DesignSystem.typography.fontWeight.medium,
+  },
+  suggestionsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignSystem.spacing.sm,
+    marginTop: DesignSystem.spacing.xs,
+    paddingVertical: DesignSystem.spacing.xs,
+  },
+  loadingText: {
     fontSize: DesignSystem.typography.fontSize.sm,
   },
 });

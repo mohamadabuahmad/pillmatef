@@ -51,11 +51,17 @@
 
 
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, initializeAuth, type Auth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
+
+// getReactNativePersistence exists in firebase/auth but TypeScript types may not be updated
+// Import it with type assertion to bypass TypeScript error
+import * as firebaseAuth from "firebase/auth";
+const getReactNativePersistence = (firebaseAuth as any).getReactNativePersistence;
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBcVtzSBPGNq9CmbDEnuGUkkIg9iuApQY",
@@ -70,9 +76,38 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-// Use getAuth - it automatically handles persistence in React Native
-export const auth = getAuth(app);
+// Initialize Auth with AsyncStorage persistence
+// Handle case where auth might already be initialized (e.g., during hot reload)
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+} catch (error: any) {
+  // If auth is already initialized, get the existing instance
+  if (error.code === 'auth/already-initialized') {
+    auth = getAuth(app);
+  } else {
+    throw error;
+  }
+}
+
+export { auth };
 
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
-export const functions = getFunctions(app);
+
+// Initialize Functions with explicit region (us-central1 where functions are deployed)
+// ✅ CORRECT: Region matches function deployment region
+// ✅ CORRECT: Functions instance uses same app as auth
+// 
+// IMPORTANT: getFunctions() automatically gets auth from the app instance
+// The functions instance is created at module load, but httpsCallable will
+// check auth.currentUser when called, not when the instance is created
+export const functions = getFunctions(app, 'us-central1');
+
+// Helper function to get a fresh functions instance (in case auth state changes)
+// This ensures we always get a functions instance linked to the current auth state
+export const getFunctionsInstance = () => {
+  return getFunctions(app, 'us-central1');
+};
