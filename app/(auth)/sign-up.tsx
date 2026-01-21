@@ -14,7 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { DesignSystem } from "../../constants/DesignSystem";
+import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
+import { useTheme } from "../../contexts/ThemeContext";
 import { auth, db } from "../../src/firebase";
 
 interface FormErrors {
@@ -28,6 +29,8 @@ interface FormErrors {
 }
 
 export default function SignUp() {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -282,7 +285,7 @@ export default function SignUp() {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
@@ -292,27 +295,29 @@ export default function SignUp() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.h1}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to start managing your medications</Text>
+          <Text style={[styles.h1, { color: colors.textPrimary }]}>Create Account</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Sign up to start managing your medications</Text>
         </View>
 
         {/* General Error Message */}
         {errors.general && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>⚠️ {errors.general}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2', borderColor: colors.error }]}>
+            <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : colors.error }]}>⚠️ {errors.general}</Text>
           </View>
         )}
 
         {/* First Name Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>First Name</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>First Name</Text>
           <TextInput 
             style={[
-              styles.input, 
+              styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.firstName && errors.firstName && styles.inputError,
               touched.firstName && !errors.firstName && firstName.length > 0 && styles.inputSuccess
             ]} 
-            placeholder="Enter your first name" 
+            placeholder="Enter your first name"
+            placeholderTextColor={colors.textTertiary}
             value={firstName} 
             onChangeText={handleFirstNameChange}
             onBlur={() => {
@@ -331,14 +336,16 @@ export default function SignUp() {
 
         {/* Last Name Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Last Name</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>Last Name</Text>
           <TextInput 
             style={[
-              styles.input, 
+              styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.lastName && errors.lastName && styles.inputError,
               touched.lastName && !errors.lastName && lastName.length > 0 && styles.inputSuccess
             ]} 
-            placeholder="Enter your last name" 
+            placeholder="Enter your last name"
+            placeholderTextColor={colors.textTertiary} 
             value={lastName} 
             onChangeText={handleLastNameChange}
             onBlur={() => {
@@ -357,14 +364,16 @@ export default function SignUp() {
 
         {/* Phone Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>Phone Number</Text>
           <TextInput 
             style={[
-              styles.input, 
+              styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.phone && errors.phone && styles.inputError,
               touched.phone && !errors.phone && phone.length > 0 && styles.inputSuccess
             ]} 
-            placeholder="Enter your phone number" 
+            placeholder="Enter your phone number"
+            placeholderTextColor={colors.textTertiary} 
             value={phone} 
             onChangeText={handlePhoneChange}
             onBlur={() => {
@@ -383,14 +392,16 @@ export default function SignUp() {
 
         {/* Email Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
+          <Text style={[styles.label, { color: colors.textPrimary }]}>Email</Text>
+          <TextInput 
             style={[
               styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.email && errors.email && styles.inputError,
               touched.email && !errors.email && email.length > 0 && styles.inputSuccess
-            ]}
+            ]} 
             placeholder="Enter your email"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={handleEmailChange}
             onBlur={() => {
@@ -410,14 +421,16 @@ export default function SignUp() {
 
         {/* Password Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>Password</Text>
           <TextInput 
             style={[
               styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.password && errors.password && styles.inputError,
               touched.password && !errors.password && password.length > 0 && styles.inputSuccess
             ]} 
-            placeholder="Create a password" 
+            placeholder="Create a password"
+            placeholderTextColor={colors.textTertiary}
             value={password} 
             onChangeText={handlePasswordChange}
             onBlur={() => {
@@ -441,14 +454,16 @@ export default function SignUp() {
 
         {/* Confirm Password Input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Confirm Password</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>Confirm Password</Text>
           <TextInput 
             style={[
               styles.input,
+              { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
               touched.confirmPassword && errors.confirmPassword && styles.inputError,
               touched.confirmPassword && !errors.confirmPassword && confirmPassword.length > 0 && styles.inputSuccess
             ]} 
-            placeholder="Confirm your password" 
+            placeholder="Confirm your password"
+            placeholderTextColor={colors.textTertiary}
             value={confirmPassword} 
             onChangeText={handleConfirmPasswordChange}
             onBlur={() => {
@@ -473,7 +488,8 @@ export default function SignUp() {
         {/* Sign Up Button */}
         <TouchableOpacity 
           style={[
-            styles.btn, 
+            styles.btn,
+            { backgroundColor: colors.primary },
             (loading || hasErrors()) && styles.btnDisabled
           ]} 
           onPress={onSignUp}
@@ -496,8 +512,8 @@ export default function SignUp() {
           style={styles.backButton}
           disabled={loading}
         >
-          <Text style={styles.link}>
-            Already have an account? <Text style={styles.linkBold}>Sign In</Text>
+          <Text style={[styles.link, { color: colors.textSecondary }]}>
+            Already have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Sign In</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -507,8 +523,7 @@ export default function SignUp() {
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1, 
-    backgroundColor: DesignSystem.colors.background 
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -525,12 +540,10 @@ const styles = StyleSheet.create({
     fontSize: DesignSystem.typography.fontSize['3xl'], 
     fontWeight: DesignSystem.typography.fontWeight.extrabold, 
     marginBottom: DesignSystem.spacing.sm,
-    color: DesignSystem.colors.textPrimary,
     letterSpacing: DesignSystem.typography.letterSpacing.tight,
   },
   subtitle: {
     fontSize: DesignSystem.typography.fontSize.base,
-    color: DesignSystem.colors.textSecondary,
     textAlign: "center",
     fontWeight: DesignSystem.typography.fontWeight.regular,
   },
@@ -540,17 +553,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: DesignSystem.typography.fontSize.sm,
     fontWeight: DesignSystem.typography.fontWeight.semibold,
-    color: DesignSystem.colors.textPrimary,
     marginBottom: DesignSystem.spacing.sm,
   },
   input: { 
-    backgroundColor: DesignSystem.colors.surface, 
     padding: DesignSystem.layout.inputPadding, 
     borderRadius: DesignSystem.borderRadius.base, 
     fontSize: DesignSystem.typography.fontSize.base,
     borderWidth: 1,
-    borderColor: DesignSystem.colors.border,
-    color: DesignSystem.colors.textPrimary,
     fontWeight: DesignSystem.typography.fontWeight.regular,
     ...DesignSystem.shadows.sm,
   },
@@ -591,7 +600,6 @@ const styles = StyleSheet.create({
     fontWeight: DesignSystem.typography.fontWeight.semibold,
   },
   btn: { 
-    backgroundColor: DesignSystem.colors.primary, 
     padding: DesignSystem.layout.buttonPadding, 
     borderRadius: DesignSystem.borderRadius.base, 
     alignItems: "center", 
@@ -616,13 +624,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   link: { 
-    color: DesignSystem.colors.textSecondary, 
     fontWeight: DesignSystem.typography.fontWeight.medium, 
     textAlign: "center",
     fontSize: DesignSystem.typography.fontSize.sm,
   },
   linkBold: {
-    color: DesignSystem.colors.primary,
     fontWeight: DesignSystem.typography.fontWeight.bold,
   },
 });

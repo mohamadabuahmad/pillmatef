@@ -76,18 +76,23 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
+import { useTheme } from "../../contexts/ThemeContext";
+import { getThemeColors } from "../../constants/DesignSystem";
 
 export default function TabsLayout() {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
+
   return (
     <Tabs 
       screenOptions={{ 
         headerShown: false,
-        tabBarActiveTintColor: "#6366f1",
-        tabBarInactiveTintColor: "#999",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: "#e0e0e0",
+          borderTopColor: colors.border,
           height: Platform.OS === 'ios' ? 90 : 60,
           paddingBottom: Platform.OS === 'ios' ? 25 : 10,
           paddingTop: 10,

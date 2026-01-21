@@ -18,12 +18,14 @@ import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
 import { auth, db, functions } from "../../src/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { router } from "expo-router";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 
 export default function Chat() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const colors = getThemeColors(isDark);
   const [messages, setMessages] = useState<Msg[]>([
     {
@@ -179,11 +181,11 @@ export default function Chat() {
           ]}
         >
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            💊 Medication Assistant
+            💊 {t('medicationAssistant')}
           </Text>
           {userMedications.length > 0 && (
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              I know about {userMedications.length} of your medications
+              {t('iKnowAbout')} {userMedications.length} {t('ofYourMedications')}
             </Text>
           )}
         </View>
@@ -218,7 +220,7 @@ export default function Chat() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              AI is thinking...
+              {t('aiIsThinking')}
             </Text>
           </View>
         )}
@@ -238,7 +240,7 @@ export default function Chat() {
                 borderColor: colors.border,
               },
             ]}
-            placeholder="Ask about medications, interactions, or schedules..."
+            placeholder={t('askAboutMedications')}
             placeholderTextColor={colors.textTertiary}
             value={text}
             onChangeText={setText}
@@ -258,7 +260,7 @@ export default function Chat() {
             disabled={loading || !text.trim()}
             activeOpacity={0.8}
           >
-            <Text style={styles.btnText}>Send</Text>
+            <Text style={styles.btnText}>{t('send')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

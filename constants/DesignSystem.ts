@@ -160,6 +160,7 @@ export const DesignSystem = {
 export const getThemeColors = (isDark: boolean) => {
   if (isDark) {
     return {
+      ...DesignSystem.colors,
       background: '#0F172A',
       surface: '#1E293B',
       surfaceElevated: '#334155',
@@ -168,7 +169,10 @@ export const getThemeColors = (isDark: boolean) => {
       textTertiary: '#94A3B8',
       border: '#334155',
       divider: '#1E293B',
-      ...DesignSystem.colors,
+      primary: '#6366F1', // Brighter primary for dark mode
+      success: '#22C55E',
+      error: '#EF4444',
+      warning: '#F59E0B',
     };
   }
   return {

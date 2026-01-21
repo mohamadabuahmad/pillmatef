@@ -316,6 +316,7 @@ import DoseCard from "../../components/DoseCard";
 import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
 import type { Dose } from "../../constants/types";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { auth, db, rtdb } from "../../src/firebase";
 
 import {
@@ -330,6 +331,7 @@ import { useMedicationSuggestions } from "../../hooks/useMedicationSuggestions";
 export default function Home() {
   const [doses, setDoses] = useState<Dose[]>([]);
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const [userName, setUserName] = useState<string | null>(null);
   const [devicePIN, setDevicePIN] = useState<string | null>(null);
 
@@ -453,9 +455,9 @@ export default function Home() {
     const dose = doseNumber.trim();
     const timeStr = formatTime(selectedHour, selectedMinute);
 
-    if (!name) return Alert.alert("Missing", "Enter medication name.");
+    if (!name) return Alert.alert(t('missing'), t('enterMedicationName'));
     if (!dose || isNaN(Number(dose)) || Number(dose) <= 0) {
-      return Alert.alert("Invalid dose", "Enter a valid number of pills.");
+      return Alert.alert(t('invalidDose'), t('enterValidNumber'));
     }
 
     // 1. CHECK ALLERGIES
@@ -466,16 +468,16 @@ export default function Home() {
       if (allergyCheck.hasAllergy) {
         const shouldProceed = await new Promise<boolean>((resolve) => {
           Alert.alert(
-            "⚠️ Allergy Warning",
+            `⚠️ ${t('allergyWarning')}`,
             `${allergyCheck.message}\n\nSeverity: ${allergyCheck.severity.toUpperCase()}`,
             [
               {
-                text: "Cancel",
+                text: t('cancel'),
                 style: "cancel",
                 onPress: () => resolve(false),
               },
               {
-                text: allergyCheck.shouldBlock ? "OK" : "Add Anyway",
+                text: allergyCheck.shouldBlock ? t('ok') : t('addAnyway'),
                 onPress: () => resolve(!allergyCheck.shouldBlock),
                 style: allergyCheck.shouldBlock ? "destructive" : "default",
               },
@@ -504,23 +506,23 @@ export default function Home() {
 
       if (!interaction.canTakeTogether || interaction.recommendation === "avoid") {
         Alert.alert(
-          "🚫 Drug Interaction Warning",
+          `🚫 ${t('drugInteractionWarning')}`,
           `${interaction.message}\n\nCannot take "${name}" with "${existingDose.medName}".`,
-          [{ text: "OK" }]
+          [{ text: t('ok') }]
         );
         return;
       }
 
       if (interaction.recommendation === "space_hours" && interaction.timeGapRequired > 0) {
-        const timeGapWarning = `⚠️ Time Gap Required\n\n${interaction.message}\n\nYou need at least ${interaction.timeGapRequired} hours between "${name}" and "${existingDose.medName}".`;
+        const timeGapWarning = `⚠️ ${t('timeGapRequired')}\n\n${interaction.message}\n\nYou need at least ${interaction.timeGapRequired} hours between "${name}" and "${existingDose.medName}".`;
 
         const shouldProceed = await new Promise<boolean>((resolve) => {
           Alert.alert(
-            "Time Gap Required",
+            t('timeGapRequired'),
             timeGapWarning,
             [
-              { text: "Cancel", onPress: () => resolve(false) },
-              { text: "Adjust Time", onPress: () => resolve(true) },
+              { text: t('cancel'), onPress: () => resolve(false) },
+              { text: t('adjustTime'), onPress: () => resolve(true) },
             ]
           );
         });
@@ -571,11 +573,11 @@ export default function Home() {
     const timeStr = formatTime(editSelectedHour, editSelectedMinute);
 
     if (!name) {
-      Alert.alert("Missing", "Enter medication name.");
+      Alert.alert(t('missing'), t('enterMedicationName'));
       return;
     }
     if (!dose || isNaN(Number(dose)) || Number(dose) <= 0) {
-      Alert.alert("Invalid dose", "Enter a valid number of pills.");
+      Alert.alert(t('invalidDose'), t('enterValidNumber'));
       return;
     }
 
@@ -599,12 +601,12 @@ export default function Home() {
 
   const handleDelete = (dose: Dose) => {
     Alert.alert(
-      "Delete Medication",
-      `Are you sure you want to delete ${dose.medName}?`,
+      t('deleteMedication'),
+      `${t('areYouSureDelete')} ${dose.medName}?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t('cancel'), style: "cancel" },
         {
-          text: "Delete",
+          text: t('delete'),
           style: "destructive",
           onPress: async () => {
             const uid = auth.currentUser?.uid;
@@ -718,9 +720,9 @@ export default function Home() {
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={[styles.greeting, { color: colors.textPrimary }]}>
-              Hello{userName ? `, ${userName}` : ""}! 👋
+              {t('hello')}{userName ? `, ${userName}` : ""}! 👋
             </Text>
-            <Text style={[styles.h1, { color: colors.textPrimary }]}>Your Medications</Text>
+            <Text style={[styles.h1, { color: colors.textPrimary }]}>{t('yourMedications')}</Text>
           </View>
         </View>
 
@@ -728,7 +730,7 @@ export default function Home() {
         <View style={[styles.nextCard, { backgroundColor: colors.primary }]}>
           <View style={styles.nextCardHeader}>
             <Text style={styles.nextCardIcon}>⏰</Text>
-            <Text style={styles.nextTitle}>Next Dose</Text>
+            <Text style={styles.nextTitle}>{t('nextDose')}</Text>
           </View>
           <Text style={styles.nextValue}>
             {nextDose ? (
@@ -737,7 +739,7 @@ export default function Home() {
                 <Text style={styles.nextMedName}> • {nextDose.medName}</Text>
               </>
             ) : (
-              "No schedule yet"
+              t('noScheduleYet')
             )}
           </Text>
         </View>
@@ -747,7 +749,7 @@ export default function Home() {
           <View style={[styles.safetyWarning, { backgroundColor: '#fee2e2', borderColor: '#ef4444' }]}>
             <Text style={styles.safetyWarningIcon}>🚫</Text>
             <View style={styles.safetyWarningContent}>
-              <Text style={styles.safetyWarningTitle}>Dispense Blocked</Text>
+              <Text style={styles.safetyWarningTitle}>{t('dispenseBlocked')}</Text>
               <Text style={styles.safetyWarningText}>{safetyWarning}</Text>
             </View>
           </View>
@@ -760,19 +762,19 @@ export default function Home() {
             onPress={triggerDispense}
             activeOpacity={0.8}
           >
-            <Text style={styles.dispenseBtnText}>💊 Dispense Dose Now</Text>
+            <Text style={styles.dispenseBtnText}>💊 {t('dispenseDoseNow')}</Text>
           </TouchableOpacity>
         )}
 
         {/* Add medication form */}
         {!editingDose ? (
           <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Add New Medication</Text>
+            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>{t('addNewMedication')}</Text>
 
             <View style={styles.inputContainer}>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="Medication name (e.g., Aspirin)"
+                placeholder={t('medicationNamePlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 value={medName}
                 onChangeText={(text) => {
@@ -793,7 +795,7 @@ export default function Home() {
               {suggestionsLoading && medName.trim().length >= 2 && (
                 <View style={styles.suggestionsLoading}>
                   <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                    Finding medications...
+                    {t('findingMedications')}
                   </Text>
                 </View>
               )}
@@ -829,7 +831,7 @@ export default function Home() {
 
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="Number of pills (e.g., 2)"
+              placeholder={t('numberOfPillsPlaceholder')}
               placeholderTextColor={colors.textTertiary}
               value={doseNumber}
               onChangeText={setDoseNumber}
@@ -844,22 +846,22 @@ export default function Home() {
               }}
             >
               <Text style={[styles.timePickerText, { color: colors.textPrimary }]}>
-                Time: {formatTime(selectedHour, selectedMinute)}
+                {t('time')}: {formatTime(selectedHour, selectedMinute)}
               </Text>
               <Text style={[styles.timePickerArrow, { color: colors.textSecondary }]}>▼</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={addMedication} activeOpacity={0.8}>
-              <Text style={styles.btnText}>Add to Schedule</Text>
+              <Text style={styles.btnText}>{t('addToSchedule')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Edit Medication</Text>
+            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>{t('editMedication')}</Text>
 
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="Medication name (e.g., Aspirin)"
+              placeholder={t('medicationNamePlaceholder')}
               placeholderTextColor={colors.textTertiary}
               value={editMedName}
               onChangeText={setEditMedName}
@@ -867,7 +869,7 @@ export default function Home() {
 
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="Number of pills (e.g., 2)"
+              placeholder={t('numberOfPillsPlaceholder')}
               placeholderTextColor={colors.textTertiary}
               value={editDoseNumber}
               onChangeText={setEditDoseNumber}
@@ -882,7 +884,7 @@ export default function Home() {
               }}
             >
               <Text style={[styles.timePickerText, { color: colors.textPrimary }]}>
-                Time: {formatTime(editSelectedHour, editSelectedMinute)}
+                {t('time')}: {formatTime(editSelectedHour, editSelectedMinute)}
               </Text>
               <Text style={[styles.timePickerArrow, { color: colors.textSecondary }]}>▼</Text>
             </TouchableOpacity>
@@ -899,10 +901,10 @@ export default function Home() {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.btnText, styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.btnText, styles.cancelBtnText, { color: colors.textSecondary }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={handleSaveEdit} activeOpacity={0.8}>
-                <Text style={styles.btnText}>Save Changes</Text>
+                <Text style={styles.btnText}>{t('saveChanges')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -910,12 +912,12 @@ export default function Home() {
 
         {/* Schedule Section */}
         <View style={styles.scheduleSection}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Your Schedule</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('yourSchedule')}</Text>
           {doses.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No medications scheduled yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Add one above to get started</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('noMedicationsScheduled')}</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>{t('addOneAbove')}</Text>
             </View>
           ) : (
             <FlatList

@@ -141,10 +141,13 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import React, { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { DesignSystem } from "../../constants/DesignSystem";
+import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
+import { useTheme } from "../../contexts/ThemeContext";
 import { auth, db } from "../../src/firebase";
 
 export default function SignIn() {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -206,23 +209,23 @@ export default function SignIn() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.h1}>PillMate</Text>
-        <Text style={styles.subtitle}>Welcome back</Text>
+        <Text style={[styles.h1, { color: colors.textPrimary }]}>PillMate</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Welcome back</Text>
       </View>
 
       {errorMessage ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2', borderColor: colors.error }]}>
+          <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : colors.error }]}>⚠️ {errorMessage}</Text>
         </View>
       ) : null}
 
       <View style={styles.form}>
         <TextInput
-          style={[styles.input, errorMessage && styles.inputError]}
+          style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }, errorMessage && styles.inputError]}
           placeholder="Email"
-          placeholderTextColor={DesignSystem.colors.textTertiary}
+          placeholderTextColor={colors.textTertiary}
           value={email}
           onChangeText={(text) => {
             setEmail(text);
@@ -234,9 +237,9 @@ export default function SignIn() {
           textContentType="emailAddress"
         />
         <TextInput
-          style={[styles.input, errorMessage && styles.inputError]}
+          style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }, errorMessage && styles.inputError]}
           placeholder="Password"
-          placeholderTextColor={DesignSystem.colors.textTertiary}
+          placeholderTextColor={colors.textTertiary}
           value={password}
           onChangeText={(text) => {
             setPassword(text);
@@ -248,7 +251,7 @@ export default function SignIn() {
         />
 
         <TouchableOpacity 
-          style={styles.btn} 
+          style={[styles.btn, { backgroundColor: colors.primary }]} 
           onPress={onSignIn}
           activeOpacity={0.8}
         >
@@ -257,9 +260,9 @@ export default function SignIn() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Don't have an account? </Text>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don't have an account? </Text>
         <Link href="./sign-up" style={styles.link}>
-          <Text style={styles.linkText}>Sign up</Text>
+          <Text style={[styles.linkText, { color: colors.primary }]}>Sign up</Text>
         </Link>
       </View>
     </View>
@@ -271,7 +274,6 @@ const styles = StyleSheet.create({
     flex: 1, 
     padding: DesignSystem.layout.containerPadding, 
     justifyContent: "center", 
-    backgroundColor: DesignSystem.colors.background 
   },
   header: {
     marginBottom: DesignSystem.spacing['3xl'],
@@ -279,27 +281,22 @@ const styles = StyleSheet.create({
   h1: { 
     fontSize: DesignSystem.typography.fontSize['4xl'], 
     fontWeight: DesignSystem.typography.fontWeight.extrabold,
-    color: DesignSystem.colors.textPrimary,
     letterSpacing: DesignSystem.typography.letterSpacing.tight,
     marginBottom: DesignSystem.spacing.xs,
   },
   subtitle: { 
     fontSize: DesignSystem.typography.fontSize.base,
-    color: DesignSystem.colors.textSecondary,
     fontWeight: DesignSystem.typography.fontWeight.regular,
   },
   form: {
     marginTop: DesignSystem.spacing['2xl'],
   },
   input: { 
-    backgroundColor: DesignSystem.colors.surface, 
     padding: DesignSystem.layout.inputPadding, 
     borderRadius: DesignSystem.borderRadius.base, 
     marginBottom: DesignSystem.spacing.md,
     fontSize: DesignSystem.typography.fontSize.base,
     borderWidth: 1,
-    borderColor: DesignSystem.colors.border,
-    color: DesignSystem.colors.textPrimary,
     fontWeight: DesignSystem.typography.fontWeight.regular,
     ...DesignSystem.shadows.sm,
   },
@@ -308,20 +305,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
     padding: DesignSystem.spacing.md,
     borderRadius: DesignSystem.borderRadius.base,
     marginBottom: DesignSystem.spacing.base,
     borderWidth: 1,
-    borderColor: DesignSystem.colors.error,
   },
   errorText: {
-    color: DesignSystem.colors.error,
     fontSize: DesignSystem.typography.fontSize.sm,
     fontWeight: DesignSystem.typography.fontWeight.semibold,
   },
   btn: { 
-    backgroundColor: DesignSystem.colors.primary, 
     padding: DesignSystem.layout.buttonPadding, 
     borderRadius: DesignSystem.borderRadius.base, 
     alignItems: "center", 
@@ -340,13 +333,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: DesignSystem.typography.fontSize.base,
-    color: DesignSystem.colors.textSecondary,
   },
   link: {
     marginTop: 0,
   },
   linkText: {
-    color: DesignSystem.colors.primary,
     fontWeight: DesignSystem.typography.fontWeight.semibold,
     fontSize: DesignSystem.typography.fontSize.base,
   },

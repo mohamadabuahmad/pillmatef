@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Alert 
 import { auth } from "../src/firebase";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { getThemeColors, DesignSystem } from "../constants/DesignSystem";
 
 export default function ChangePasswordScreen() {
   const { t } = useLanguage();
@@ -16,23 +17,7 @@ export default function ChangePasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const colors = isDark
-    ? {
-        background: '#1a1a1a',
-        card: '#2a2a2a',
-        text: '#fff',
-        textSecondary: '#aaa',
-        border: '#333',
-        input: '#333',
-      }
-    : {
-        background: '#f8f9fa',
-        card: '#fff',
-        text: '#1a1a1a',
-        textSecondary: '#666',
-        border: '#e0e0e0',
-        input: '#f5f5f5',
-      };
+  const colors = getThemeColors(isDark);
 
   const handleChangePassword = async () => {
     if (!user || !user.email) {
@@ -74,48 +59,49 @@ export default function ChangePasswordScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backBtnText, { color: colors.text }]}>←</Text>
+          <Text style={[styles.backBtnText, { color: colors.textPrimary }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('changePassword')}</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('changePassword')}</Text>
         <View style={styles.backBtn} />
       </View>
 
       <ScrollView style={styles.content}>
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.label, { color: colors.text }]}>{t('currentPassword')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>{t('currentPassword')}</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+            style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
             value={currentPassword}
             onChangeText={setCurrentPassword}
             placeholder={t('currentPassword')}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
           />
 
-          <Text style={[styles.label, { color: colors.text }]}>{t('newPassword')}</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>{t('newPassword')}</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+            style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
             value={newPassword}
             onChangeText={setNewPassword}
             placeholder={t('newPassword')}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
           />
 
-          <Text style={[styles.label, { color: colors.text }]}>{t('confirmPassword')}</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>{t('confirmPassword')}</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+            style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder={t('confirmPassword')}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
           />
 
           <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
+            style={[styles.btn, { backgroundColor: colors.primary }, loading && styles.btnDisabled]}
             onPress={handleChangePassword}
             disabled={loading}
+            activeOpacity={0.8}
           >
             <Text style={styles.btnText}>{t('save')}</Text>
           </TouchableOpacity>
@@ -133,7 +119,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: DesignSystem.spacing.base,
     paddingTop: 60,
     borderBottomWidth: 1,
   },
@@ -144,48 +130,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backBtnText: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    fontWeight: DesignSystem.typography.fontWeight.extrabold,
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: DesignSystem.layout.containerPadding,
   },
   card: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: DesignSystem.borderRadius.lg,
+    padding: DesignSystem.layout.cardPadding,
+    ...DesignSystem.shadows.base,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
+    fontSize: DesignSystem.typography.fontSize.base,
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
+    marginBottom: DesignSystem.spacing.sm,
+    marginTop: DesignSystem.spacing.md,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 4,
+    borderRadius: DesignSystem.borderRadius.base,
+    padding: DesignSystem.layout.inputPadding,
+    fontSize: DesignSystem.typography.fontSize.base,
+    marginBottom: DesignSystem.spacing.xs,
+    fontWeight: DesignSystem.typography.fontWeight.regular,
+    ...DesignSystem.shadows.sm,
   },
   btn: {
-    backgroundColor: '#6366f1',
-    padding: 16,
-    borderRadius: 12,
+    padding: DesignSystem.layout.buttonPadding,
+    borderRadius: DesignSystem.borderRadius.base,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: DesignSystem.spacing.lg,
+    ...DesignSystem.shadows.md,
   },
   btnDisabled: {
     opacity: 0.5,
   },
   btnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: DesignSystem.typography.fontSize.base,
+    fontWeight: DesignSystem.typography.fontWeight.bold,
   },
 });
 
