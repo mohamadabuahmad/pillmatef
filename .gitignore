@@ -43,3 +43,11 @@ yarn-error.*
 # Firebase Functions
 functions/lib/
 functions/node_modules/
+
+# Testing
+coverage/
+.nyc_output/
+*.bak
+
+# Patch backups
+node_modules/jest-expo/src/preset/setup.js.bak
