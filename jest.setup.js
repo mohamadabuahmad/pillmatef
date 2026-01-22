@@ -124,13 +124,81 @@ jest.mock("./constants/DesignSystem", () => ({
 }));
 
 // Mock contexts
-jest.mock("./contexts/LanguageContext", () => ({
-  useLanguage: () => ({
-    t: (key: string) => key,
-    language: "en",
-    setLanguage: jest.fn(),
-  }),
-}));
+jest.mock("./contexts/LanguageContext", () => {
+  // English translations for tests
+  const enTranslations = {
+    menu: 'Menu',
+    home: 'Home',
+    settings: 'Settings',
+    profile: 'Profile',
+    logout: 'Logout',
+    general: 'General',
+    theme: 'Theme',
+    language: 'Language',
+    notifications: 'Notifications',
+    privacy: 'Privacy',
+    about: 'About',
+    light: 'Light',
+    dark: 'Dark',
+    auto: 'Auto',
+    editProfile: 'Edit Profile',
+    changePassword: 'Change Password',
+    name: 'Name',
+    email: 'Email',
+    save: 'Save',
+    cancel: 'Cancel',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm Password',
+    hello: 'Hello',
+    yourMedications: 'Your Medications',
+    nextDose: 'Next Dose',
+    noScheduleYet: 'No schedule yet',
+    addNewMedication: 'Add New Medication',
+    medicationName: 'Medication name',
+    medicationNamePlaceholder: 'Medication name (e.g., Aspirin)',
+    numberOfPills: 'Number of pills',
+    numberOfPillsPlaceholder: 'Number of pills (e.g., 2)',
+    time: 'Time',
+    addToSchedule: 'Add to Schedule',
+    yourSchedule: 'Your Schedule',
+    noMedicationsScheduled: 'No medications scheduled yet',
+    addOneAbove: 'Add one above to get started',
+    editMedication: 'Edit Medication',
+    saveChanges: 'Save Changes',
+    dispenseDoseNow: 'Dispense Dose Now',
+    dispenseBlocked: 'Dispense Blocked',
+    findingMedications: 'Finding medications...',
+    medicationAssistant: 'Medication Assistant',
+    iKnowAbout: 'I know about',
+    ofYourMedications: 'of your medications',
+    aiIsThinking: 'AI is thinking...',
+    askAboutMedications: 'Ask about medications, interactions, or schedules...',
+    send: 'Send',
+    missing: 'Missing',
+    enterMedicationName: 'Enter medication name.',
+    invalidDose: 'Invalid dose',
+    enterValidNumber: 'Enter a valid number of pills.',
+    allergyWarning: 'Allergy Warning',
+    drugInteractionWarning: 'Drug Interaction Warning',
+    timeGapRequired: 'Time Gap Required',
+    addAnyway: 'Add Anyway',
+    adjustTime: 'Adjust Time',
+    deleteMedication: 'Delete Medication',
+    areYouSureDelete: 'Are you sure you want to delete',
+    delete: 'Delete',
+    close: 'Close',
+    ok: 'OK',
+  };
+
+  return {
+    useLanguage: () => ({
+      t: (key: string) => enTranslations[key] || key,
+      language: "en",
+      setLanguage: jest.fn(),
+    }),
+  };
+});
 
 jest.mock("./contexts/ThemeContext", () => ({
   useTheme: () => ({

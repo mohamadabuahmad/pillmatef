@@ -306,7 +306,7 @@
 
 
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { ref, set } from "firebase/database";
@@ -325,8 +325,11 @@ import {
   parseHHMM,
   scheduleDoseNotification,
 } from "../../hooks/notifications";
+import * as Notifications from "expo-notifications";
+import { rotateMotor } from "../../hooks/useMotorControl";
 import { useMedicationSafety } from "../../hooks/useMedicationSafety";
 import { useMedicationSuggestions } from "../../hooks/useMedicationSuggestions";
+import { useDeviceSlotsNotifications } from "../../hooks/useDeviceSlotsNotifications";
 
 export default function Home() {
   const [doses, setDoses] = useState<Dose[]>([]);
@@ -354,6 +357,9 @@ export default function Home() {
     medName,
     medName.trim().length >= 2 && showSuggestions
   );
+
+  // Monitor device slots for low/empty pills and send notifications
+  useDeviceSlotsNotifications();
 
   // Edit state
   const [editingDose, setEditingDose] = useState<Dose | null>(null);
@@ -435,6 +441,68 @@ export default function Home() {
 
     return () => unsub();
   }, []);
+
+  // Auto-dispense function (similar to triggerDispense but without user alerts)
+  const autoTriggerDispense = useCallback(async () => {
+    if (!devicePIN) {
+      console.log("No device linked for auto-dispense");
+      return;
+    }
+
+    // Check if dispense is blocked (safety first!)
+    if (blockDispense) {
+      console.warn("Auto-dispense blocked due to safety concerns");
+      return;
+    }
+
+    // Check allergies before auto-dispensing
+    const nextDose = doses.find((d) => d.enabled);
+    if (nextDose) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const userAllergies = await getUserAllergies(uid);
+        if (userAllergies.length > 0) {
+          const allergyCheck = await checkAllergy(nextDose.medName, userAllergies);
+
+          if (allergyCheck.hasAllergy && allergyCheck.shouldBlock) {
+            console.warn("Auto-dispense blocked due to allergy:", allergyCheck.message);
+            return;
+          }
+        }
+      }
+    }
+
+    try {
+      // Trigger dispense automatically
+      const dispenseRef = ref(rtdb, `devices/${devicePIN}/dispense`);
+      await set(dispenseRef, true);
+      console.log("✅ Auto-dispense triggered successfully");
+    } catch (error: any) {
+      console.error("Error triggering auto-dispense:", error);
+    }
+  }, [devicePIN, doses, blockDispense, getUserAllergies, checkAllergy]);
+
+  // Auto-dispense when pill notification is received
+  useEffect(() => {
+    if (!devicePIN) return;
+
+    // Listen for when notifications are received (when user sees the notification)
+    const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
+      // Check if this is a pill dose notification (not a low inventory notification)
+      const title = notification.request.content.title;
+      if (title && title.includes("Time to take your dose")) {
+        // Rotate motor 45 degrees when pill notification is received
+        await rotateMotor(45);
+        
+        // Automatically trigger dispense (with safety checks)
+        await autoTriggerDispense();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [devicePIN, autoTriggerDispense]);
 
   const nextDose = useMemo(() => doses.find((d) => d.enabled) ?? null, [doses]);
 

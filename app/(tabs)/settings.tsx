@@ -241,6 +241,45 @@ export default function SettingsTab() {
           ))}
         </View>
 
+        {/* Device Management Section */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Device</Text>
+          <TouchableOpacity
+            style={[
+              styles.option,
+              { borderBottomWidth: 1 },
+            ]}
+            onPress={() => router.push("/(device)/slots" as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.optionIcon}>💊</Text>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary }]}>Device Slots</Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary }]}>
+                Manage 7 pill slots and track inventory
+              </Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textSecondary }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.option,
+              { borderBottomWidth: 0 },
+            ]}
+            onPress={() => router.push("/(device)/link?fromSettings=true" as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.optionIcon}>📱</Text>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary }]}>Link Device</Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary }]}>
+                Add a new device or re-link after reset
+              </Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textSecondary }]}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Logout Section */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
@@ -303,6 +342,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: DesignSystem.typography.fontSize.base,
     fontWeight: DesignSystem.typography.fontWeight.semibold,
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionSubtext: {
+    fontSize: DesignSystem.typography.fontSize.sm,
+    marginTop: 2,
+    fontWeight: DesignSystem.typography.fontWeight.normal,
+  },
+  chevron: {
+    fontSize: DesignSystem.typography.fontSize['2xl'],
+    fontWeight: DesignSystem.typography.fontWeight.bold,
+    marginLeft: DesignSystem.spacing.sm,
   },
   checkmark: {
     fontSize: DesignSystem.typography.fontSize.xl,

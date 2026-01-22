@@ -66,7 +66,7 @@
 
 
 
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { get, off, onValue, ref, set } from "firebase/database";
 import { collection, getDocs, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
@@ -78,8 +78,11 @@ export default function LinkDevice() {
   const [isLinking, setIsLinking] = useState(false);
   const [availableDevices, setAvailableDevices] = useState<string[]>([]);
   const [isChecking, setIsChecking] = useState(true);
+  const params = useLocalSearchParams();
+  const fromSettings = params.fromSettings === 'true';
 
   // Check if user already has a linked device on mount
+  // Skip redirect if coming from settings (allows adding another device or re-linking)
   useEffect(() => {
     const checkForLinkedDevice = async () => {
       const uid = auth.currentUser?.uid;
@@ -92,11 +95,11 @@ export default function LinkDevice() {
         const devicesRef = collection(db, "users", uid, "devices");
         const snapshot = await getDocs(devicesRef);
         
-        if (!snapshot.empty) {
-          // User already has a linked device, redirect to home
+        if (!snapshot.empty && !fromSettings) {
+          // User already has a linked device, redirect to home (unless coming from settings)
           router.replace("/(tabs)" as any);
         } else {
-          // No device linked, show the link page
+          // No device linked OR coming from settings, show the link page
           setIsChecking(false);
         }
       } catch (error) {
@@ -106,7 +109,7 @@ export default function LinkDevice() {
     };
 
     checkForLinkedDevice();
-  }, []);
+  }, [fromSettings]);
 
   // Listen for devices waiting for pairing
   useEffect(() => {
@@ -222,6 +225,20 @@ export default function LinkDevice() {
         model: "M5Stack",
       }, { merge: true });
 
+      // Initialize 7 empty slots for the device
+      const slotsRef = ref(rtdb, `devices/${pin}/slots`);
+      const initialSlots: any = {};
+      for (let i = 1; i <= 7; i++) {
+        initialSlots[i] = {
+          slotNumber: i,
+          medicationName: null,
+          pillCount: 0,
+          maxCapacity: 100,
+          lowThreshold: 10,
+        };
+      }
+      await set(slotsRef, initialSlots);
+
       Alert.alert("Success!", "Device linked successfully!", [
         { 
           text: "OK", 
@@ -268,7 +285,10 @@ export default function LinkDevice() {
     <View style={styles.container}>
       <Text style={styles.h1}>Connect your PillMate box</Text>
       <Text style={styles.p}>
-        Enter the 6-digit PIN displayed on your PillMate box screen.
+        {fromSettings 
+          ? "Add a new device or re-link a device after reset. Enter the 6-digit PIN displayed on your PillMate box screen."
+          : "Enter the 6-digit PIN displayed on your PillMate box screen."
+        }
       </Text>
 
       {availableDevices.length > 0 && (

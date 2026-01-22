@@ -27,6 +27,7 @@ export default function SplashScreen() {
       <Text style={styles.title}>PillMate</Text>
       <Text style={styles.subtitle}>Your Smart Medication Reminder</Text>
       <ActivityIndicator size="large" color="#fff" style={styles.loader} />
+      <Text style={styles.credits}>by mohamad, Jolian</Text>
     </View>
   );
 }
@@ -59,5 +60,14 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 20,
+  },
+  credits: {
+    position: 'absolute',
+    bottom: 40,
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.7,
+    fontWeight: '400',
+    letterSpacing: 0.5,
   },
 });

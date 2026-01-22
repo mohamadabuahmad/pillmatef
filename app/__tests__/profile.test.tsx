@@ -23,7 +23,7 @@ describe("Profile Screen", () => {
   it("should render profile form", () => {
     const { getByText, getByDisplayValue } = render(<ProfileTab />);
 
-    expect(getByText(/editProfile/i)).toBeTruthy();
+    expect(getByText(/Edit Profile/i)).toBeTruthy();
     expect(getByDisplayValue("John Doe")).toBeTruthy();
     expect(getByDisplayValue("john@example.com")).toBeTruthy();
   });
@@ -89,7 +89,7 @@ describe("Profile Screen", () => {
   it("should navigate to change password screen", () => {
     const { getByText } = render(<ProfileTab />);
 
-    const changePasswordButton = getByText(/changePassword/i);
+    const changePasswordButton = getByText(/Change Password/i);
     fireEvent.press(changePasswordButton);
 
     expect(mockRouterPush).toHaveBeenCalledWith("/change-password");
