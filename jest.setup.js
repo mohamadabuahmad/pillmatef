@@ -37,6 +37,12 @@ jest.mock("expo-router", () => ({
   useSegments: () => [],
   usePathname: () => "/",
   useLocalSearchParams: jest.fn(() => ({})),
+  useFocusEffect: jest.fn((callback) => {
+    const React = require("react");
+    React.useEffect(() => {
+      callback();
+    }, []);
+  }),
   Link: ({ children, href, ...props }: any) => {
     const React = require("react");
     return React.createElement("a", { href, ...props }, children);
@@ -209,6 +215,23 @@ jest.mock("./contexts/ThemeContext", () => ({
   }),
 }));
 
+jest.mock("./contexts/AccessibilityContext", () => ({
+  useAccessibility: () => ({
+    textSize: "medium",
+    setTextSize: jest.fn(),
+    highContrast: false,
+    setHighContrast: jest.fn(),
+    simplifiedMode: false,
+    setSimplifiedMode: jest.fn(),
+    showTutorial: false,
+    setShowTutorial: jest.fn(),
+    getScaledFontSize: (size) => size,
+    getScaledSpacing: (spacing) => spacing,
+    getMinTouchTarget: () => 44,
+  }),
+  AccessibilityProvider: ({ children }) => children,
+}));
+
 // Mock Firebase
 jest.mock("firebase/app", () => ({
   getApps: jest.fn(() => []),
@@ -297,7 +320,7 @@ jest.mock("./hooks/useMedicationSuggestions", () => ({
 }));
 
 jest.mock("./hooks/useDeviceSlotsNotifications", () => ({
-  useDeviceSlotsNotifications: jest.fn(() => {}),
+  useDeviceSlotsNotifications: jest.fn(() => { }),
 }));
 
 jest.mock("./hooks/useMotorControl", () => ({
@@ -378,9 +401,9 @@ global.console = {
   error: (...args: any[]) => {
     // Suppress React act() warnings for async state updates in finally blocks
     // This is a known issue with async operations that update state after act() completes
-    if (args[0]?.toString().includes("Warning:") || 
-        args[0]?.toString().includes("not wrapped in act(...)") ||
-        args[0]?.toString().includes("An update to")) {
+    if (args[0]?.toString().includes("Warning:") ||
+      args[0]?.toString().includes("not wrapped in act(...)") ||
+      args[0]?.toString().includes("An update to")) {
       return;
     }
     originalError(...args);

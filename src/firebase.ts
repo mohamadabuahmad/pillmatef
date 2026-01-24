@@ -1,15 +1,14 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  initializeAuth, 
-  getReactNativePersistence, 
-  browserLocalPersistence, 
-  getAuth 
-} from "firebase/auth";
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApp, getApps, initializeApp } from "firebase/app";
+import {
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth
+} from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
+import { Platform } from "react-native";
 
 // Firebase configuration
 // NOTE: measurementId is removed to prevent Firebase Analytics auto-initialization
