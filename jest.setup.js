@@ -36,6 +36,7 @@ jest.mock("expo-router", () => ({
   }),
   useSegments: () => [],
   usePathname: () => "/",
+  useLocalSearchParams: jest.fn(() => ({})),
   Link: ({ children, href, ...props }: any) => {
     const React = require("react");
     return React.createElement("a", { href, ...props }, children);
@@ -295,6 +296,14 @@ jest.mock("./hooks/useMedicationSuggestions", () => ({
   })),
 }));
 
+jest.mock("./hooks/useDeviceSlotsNotifications", () => ({
+  useDeviceSlotsNotifications: jest.fn(() => {}),
+}));
+
+jest.mock("./hooks/useMotorControl", () => ({
+  rotateMotor: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock("./hooks/notifications", () => ({
   ensureNotificationPermissions: jest.fn().mockResolvedValue(true),
   scheduleDoseNotification: jest.fn(),
@@ -303,6 +312,31 @@ jest.mock("./hooks/notifications", () => ({
     const [hh, mm] = time.split(':').map(Number);
     return { hh, mm };
   }),
+}));
+
+// Mock expo-notifications
+jest.mock("expo-notifications", () => ({
+  setNotificationHandler: jest.fn(),
+  scheduleNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  getAllScheduledNotificationsAsync: jest.fn().mockResolvedValue([]),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({
+    status: "granted",
+  }),
+  getPermissionsAsync: jest.fn().mockResolvedValue({
+    status: "granted",
+  }),
+  NotificationPermissionsStatus: {
+    GRANTED: "granted",
+    UNDETERMINED: "undetermined",
+    DENIED: "denied",
+  },
+  AndroidImportance: {
+    DEFAULT: 3,
+    HIGH: 4,
+    MAX: 5,
+  },
 }));
 
 // Mock SafeAreaView
@@ -342,8 +376,11 @@ const originalWarn = console.warn;
 global.console = {
   ...console,
   error: (...args: any[]) => {
-    // Only suppress specific errors
-    if (args[0]?.toString().includes("Warning:")) {
+    // Suppress React act() warnings for async state updates in finally blocks
+    // This is a known issue with async operations that update state after act() completes
+    if (args[0]?.toString().includes("Warning:") || 
+        args[0]?.toString().includes("not wrapped in act(...)") ||
+        args[0]?.toString().includes("An update to")) {
       return;
     }
     originalError(...args);

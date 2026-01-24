@@ -1,16 +1,25 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Only set notification handler on native platforms (iOS/Android)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export async function ensureNotificationPermissions() {
+  // Notifications are not supported on web
+  if (Platform.OS === 'web') {
+    console.warn("Local notifications are not supported on web.");
+    return false;
+  }
+
   try {
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("dose-reminders", {
@@ -37,6 +46,12 @@ export async function scheduleDoseNotification(params: {
   hour: number;
   minute: number;
 }) {
+  // Notifications are not supported on web
+  if (Platform.OS === 'web') {
+    console.warn("Local notifications are not supported on web. Notification would have been scheduled for:", params.hour, ":", params.minute);
+    return null;
+  }
+
   try {
     // Use daily recurring trigger - automatically repeats every day
     const trigger: Notifications.DailyTriggerInput = {
@@ -57,6 +72,12 @@ export async function scheduleDoseNotification(params: {
 }
 
 export async function cancelAllDoseNotifications() {
+  // Notifications are not supported on web
+  if (Platform.OS === 'web') {
+    console.warn("Local notifications are not supported on web.");
+    return;
+  }
+
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
@@ -79,6 +100,12 @@ export function parseHHMM(time: string) {
 }
 
 export async function getAllScheduledNotifications() {
+  // Notifications are not supported on web
+  if (Platform.OS === 'web') {
+    console.warn("Local notifications are not supported on web.");
+    return [];
+  }
+
   try {
     return await Notifications.getAllScheduledNotificationsAsync();
   } catch (error) {

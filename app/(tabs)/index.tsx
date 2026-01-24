@@ -305,16 +305,19 @@
 
 
 
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ref, set } from "firebase/database";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import DoseCard from "../../components/DoseCard";
+import Tutorial from "../../components/Tutorial";
 import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
 import type { Dose } from "../../constants/types";
+import { useAccessibility } from "../../contexts/AccessibilityContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { auth, db, rtdb } from "../../src/firebase";
@@ -335,10 +338,12 @@ export default function Home() {
   const [doses, setDoses] = useState<Dose[]>([]);
   const { isDark } = useTheme();
   const { t } = useLanguage();
+  const { showTutorial, setShowTutorial, getScaledFontSize, getScaledSpacing, getMinTouchTarget, simplifiedMode, highContrast } = useAccessibility();
   const [userName, setUserName] = useState<string | null>(null);
   const [devicePIN, setDevicePIN] = useState<string | null>(null);
 
-  const colors = getThemeColors(isDark);
+  const colors = getThemeColors(isDark, highContrast);
+  const minTouchTarget = getMinTouchTarget();
 
   // Form state
   const [medName, setMedName] = useState("");
@@ -373,6 +378,34 @@ export default function Home() {
     ensureNotificationPermissions();
   }, []);
 
+  // Show tutorial automatically for new users after sign up
+  useEffect(() => {
+    const checkAndShowTutorial = async () => {
+      try {
+        const hasSeenTutorial = await AsyncStorage.getItem('@pillmate_has_seen_tutorial');
+        if (!hasSeenTutorial) {
+          // New user - show tutorial after a short delay
+          setTimeout(() => {
+            setShowTutorial(true);
+            AsyncStorage.setItem('@pillmate_has_seen_tutorial', 'true');
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Error checking tutorial status:', error);
+      }
+    };
+
+    checkAndShowTutorial();
+  }, []);
+
+  // Reset tutorial state when navigating to home tab (but don't auto-show if already seen)
+  useFocusEffect(
+    useCallback(() => {
+      // Only close tutorial if it's open, don't auto-open it
+      // (auto-open is handled by the useEffect above on first mount)
+    }, [])
+  );
+
   // Get user's display name
   useEffect(() => {
     const user = auth.currentUser;
@@ -404,7 +437,7 @@ export default function Home() {
     });
   }, []);
 
-  // Live schedule from Firestore + auto notification scheduling
+  // Live schedule from Firestore
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -415,17 +448,31 @@ export default function Home() {
     const ref = collection(db, "users", uid, "schedule");
     const q = query(ref, orderBy("time", "asc"));
 
-    const unsub = onSnapshot(q, async (snap) => {
+    const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Dose[];
       setDoses(list);
+    });
 
-      // ✅ auto schedule notifications for all enabled doses
+    return () => unsub();
+  }, []);
+
+  // Schedule notifications separately to avoid blocking UI
+  const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (doses.length === 0) return;
+
+    // Debounce notification scheduling
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+
+    notificationTimeoutRef.current = setTimeout(async () => {
       const ok = await ensureNotificationPermissions();
       if (!ok) return;
 
       await cancelAllDoseNotifications();
 
-      for (const d of list) {
+      for (const d of doses) {
         if (!d.enabled) continue;
 
         const { hh, mm } = parseHHMM(d.time);
@@ -437,10 +484,14 @@ export default function Home() {
           minute: mm,
         });
       }
-    });
+    }, 1000);
 
-    return () => unsub();
-  }, []);
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, [doses]);
 
   // Auto-dispense function (similar to triggerDispense but without user alerts)
   const autoTriggerDispense = useCallback(async () => {
@@ -485,6 +536,11 @@ export default function Home() {
   // Auto-dispense when pill notification is received
   useEffect(() => {
     if (!devicePIN) return;
+    
+    // Notifications are not supported on web
+    if (Platform.OS === 'web') {
+      return;
+    }
 
     // Listen for when notifications are received (when user sees the notification)
     const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
@@ -621,14 +677,14 @@ export default function Home() {
     }
   };
 
-  const handleEdit = (dose: Dose) => {
+  const handleEdit = useCallback((dose: Dose) => {
     setEditingDose(dose);
     setEditMedName(dose.medName);
     setEditDoseNumber(dose.dose || "");
     const { hour, minute } = parseTime(dose.time);
     setEditSelectedHour(hour);
     setEditSelectedMinute(minute);
-  };
+  }, []);
 
   const handleSaveEdit = async () => {
     if (!editingDose) return;
@@ -783,14 +839,16 @@ export default function Home() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        scrollEnabled={!showTutorial}
+        nestedScrollEnabled={true}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <Text style={[styles.greeting, { color: colors.textPrimary }]}>
+            <Text style={[styles.greeting, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
               {t('hello')}{userName ? `, ${userName}` : ""}! 👋
             </Text>
-            <Text style={[styles.h1, { color: colors.textPrimary }]}>{t('yourMedications')}</Text>
+            <Text style={[styles.h1, { color: colors.textPrimary, fontSize: getScaledFontSize(28) }]}>{t('yourMedications')}</Text>
           </View>
         </View>
 
@@ -988,21 +1046,18 @@ export default function Home() {
               <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>{t('addOneAbove')}</Text>
             </View>
           ) : (
-            <FlatList
-              data={doses}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+            <View style={styles.doseList}>
+              {doses.map((item) => (
                 <DoseCard
+                  key={item.id}
                   item={item}
                   onNotify={onNotify}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onToggle={handleToggle}
                 />
-              )}
-              scrollEnabled={false}
-              contentContainerStyle={styles.doseList}
-            />
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -1116,6 +1171,14 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+      {showTutorial && (
+        <Tutorial 
+          visible={showTutorial} 
+          onClose={() => {
+            setShowTutorial(false);
+          }} 
+        />
+      )}
     </View>
   );
 }
@@ -1134,8 +1197,12 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: DesignSystem.spacing.xl,
     marginTop: DesignSystem.spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   headerContent: {
+    flex: 1,
     alignItems: "flex-start",
   },
   greeting: {

@@ -156,10 +156,10 @@ export const DesignSystem = {
   },
 };
 
-// Helper function to get theme colors based on dark mode
-export const getThemeColors = (isDark: boolean) => {
+// Helper function to get theme colors based on dark mode and high contrast
+export const getThemeColors = (isDark: boolean, highContrast: boolean = false) => {
   if (isDark) {
-    return {
+    const baseColors = {
       ...DesignSystem.colors,
       background: '#0F172A',
       surface: '#1E293B',
@@ -174,8 +174,39 @@ export const getThemeColors = (isDark: boolean) => {
       error: '#EF4444',
       warning: '#F59E0B',
     };
+
+    if (highContrast) {
+      return {
+        ...baseColors,
+        textPrimary: '#FFFFFF',
+        textSecondary: '#E0E0E0',
+        border: '#FFFFFF',
+        primary: '#4A9EFF',
+        success: '#00FF00',
+        error: '#FF0000',
+        warning: '#FFAA00',
+      };
+    }
+
+    return baseColors;
   }
-  return {
+
+  const baseColors = {
     ...DesignSystem.colors,
   };
+
+  if (highContrast) {
+    return {
+      ...baseColors,
+      textPrimary: '#000000',
+      textSecondary: '#333333',
+      border: '#000000',
+      primary: '#0066CC',
+      success: '#008000',
+      error: '#CC0000',
+      warning: '#CC6600',
+    };
+  }
+
+  return baseColors;
 };

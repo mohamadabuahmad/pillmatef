@@ -1,12 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  initializeAuth, 
-  getReactNativePersistence, 
-  browserLocalPersistence, 
-  getAuth 
-} from "firebase/auth";
-import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApps, initializeApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
@@ -28,21 +21,12 @@ const firebaseConfig = {
   databaseURL: "https://pillmate-cc6cd-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-// Initialize Firebase App
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// Initialize Firebase app
+// Analytics is NOT auto-initialized, preventing the recursion crash
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-// Initialize Auth based on Platform
-let auth;
-
-if (Platform.OS === 'web') {
-  // Web uses standard browser persistence
-  auth = getAuth(app);
-} else {
-  // iOS/Android uses AsyncStorage
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-}
+// Initialize Auth for web platform (uses browser localStorage by default)
+const auth: Auth = getAuth(app);
 
 export { auth };
 
@@ -50,9 +34,16 @@ export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
 
 // Initialize Functions with explicit region (us-central1 where functions are deployed)
+// ✅ CORRECT: Region matches function deployment region
+// ✅ CORRECT: Functions instance uses same app as auth
+// 
+// IMPORTANT: getFunctions() automatically gets auth from the app instance
+// The functions instance is created at module load, but httpsCallable will
+// check auth.currentUser when called, not when the instance is created
 export const functions = getFunctions(app, 'us-central1');
 
 // Helper function to get a fresh functions instance (in case auth state changes)
+// This ensures we always get a functions instance linked to the current auth state
 export const getFunctionsInstance = () => {
   return getFunctions(app, 'us-central1');
 };

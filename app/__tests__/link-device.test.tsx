@@ -1,8 +1,8 @@
 import React from "react";
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { ref, set, get, onValue } from "firebase/database";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Alert } from "react-native";
 import LinkDevice from "../(device)/link";
 import { auth, db, rtdb } from "../../src/firebase";
@@ -13,6 +13,7 @@ const mockSet = set as jest.MockedFunction<typeof set>;
 const mockGet = get as jest.MockedFunction<typeof get>;
 const mockOnValue = onValue as jest.MockedFunction<typeof onValue>;
 const mockRouterReplace = router.replace as jest.MockedFunction<typeof router.replace>;
+const mockUseLocalSearchParams = useLocalSearchParams as jest.MockedFunction<typeof useLocalSearchParams>;
 
 describe("LinkDevice Screen", () => {
   beforeEach(() => {
@@ -21,6 +22,8 @@ describe("LinkDevice Screen", () => {
     mockGetDocs.mockResolvedValue({
       empty: true,
     } as any);
+    // Mock useLocalSearchParams to return empty params by default
+    mockUseLocalSearchParams.mockReturnValue({});
   });
 
   it("should render device link form", async () => {
@@ -40,7 +43,9 @@ describe("LinkDevice Screen", () => {
     });
 
     const linkButton = getByText(/Link Device/i);
-    fireEvent.press(linkButton);
+    await act(async () => {
+      fireEvent.press(linkButton);
+    });
 
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalled();
@@ -64,7 +69,9 @@ describe("LinkDevice Screen", () => {
     fireEvent.changeText(pairCodeInput, "123456");
 
     const linkButton = getByText(/Link Device/i);
-    fireEvent.press(linkButton);
+    await act(async () => {
+      fireEvent.press(linkButton);
+    });
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalled();
@@ -86,7 +93,9 @@ describe("LinkDevice Screen", () => {
     });
 
     fireEvent.changeText(getByPlaceholderText(/Enter 6-digit PIN/i), "123456");
-    fireEvent.press(getByText(/Link Device/i));
+    await act(async () => {
+      fireEvent.press(getByText(/Link Device/i));
+    });
 
     // Wait for success alert
     await waitFor(() => {
@@ -119,7 +128,9 @@ describe("LinkDevice Screen", () => {
     });
 
     fireEvent.changeText(getByPlaceholderText(/Enter 6-digit PIN/i), "invalid");
-    fireEvent.press(getByText(/Link Device/i));
+    await act(async () => {
+      fireEvent.press(getByText(/Link Device/i));
+    });
 
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalled();
@@ -170,7 +181,9 @@ describe("LinkDevice Screen", () => {
     
     // Press the button
     const linkButton = getByText(/Link Device/i);
-    fireEvent.press(linkButton);
+    await act(async () => {
+      fireEvent.press(linkButton);
+    });
 
     // Verify mockGet was called (linking process started)
     await waitFor(() => {

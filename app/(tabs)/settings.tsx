@@ -143,16 +143,31 @@
 import { router } from "expo-router";
 import { signOut } from "firebase/auth";
 import React from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DesignSystem, getThemeColors } from "../../constants/DesignSystem";
+import { useAccessibility, type TextSize } from "../../contexts/AccessibilityContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { auth } from "../../src/firebase";
+import Tutorial from "../../components/Tutorial";
 
 export default function SettingsTab() {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme, isDark } = useTheme();
+  const {
+    textSize,
+    setTextSize,
+    highContrast,
+    setHighContrast,
+    simplifiedMode,
+    setSimplifiedMode,
+    showTutorial,
+    setShowTutorial,
+    getScaledFontSize,
+    getScaledSpacing,
+    getMinTouchTarget,
+  } = useAccessibility();
 
   const languages = [
     { code: 'en' as const, name: 'English', flag: '🇬🇧' },
@@ -165,6 +180,15 @@ export default function SettingsTab() {
     { code: 'dark' as const, name: t('dark') },
     { code: 'auto' as const, name: t('auto') },
   ];
+
+  const textSizes: { code: TextSize; name: string; description: string }[] = [
+    { code: 'small', name: 'Small', description: 'Standard size' },
+    { code: 'medium', name: 'Medium', description: 'Default size' },
+    { code: 'large', name: 'Large', description: 'Easier to read' },
+    { code: 'extra-large', name: 'Extra Large', description: 'Easiest to read' },
+  ];
+
+  const minTouchTarget = getMinTouchTarget();
 
   const handleLogout = () => {
     Alert.alert(
@@ -191,7 +215,7 @@ export default function SettingsTab() {
     );
   };
 
-  const colors = getThemeColors(isDark);
+  const colors = getThemeColors(isDark, highContrast);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -223,22 +247,122 @@ export default function SettingsTab() {
 
         {/* Theme Selection */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('theme')}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: getScaledFontSize(18) }]}>{t('theme')}</Text>
           {themes.map((th) => (
             <TouchableOpacity
               key={th.code}
               style={[
                 styles.option,
-                { borderBottomColor: colors.border },
+                { borderBottomColor: colors.border, minHeight: minTouchTarget },
                 theme === th.code && { backgroundColor: colors.primary + '15' },
               ]}
               onPress={() => setTheme(th.code)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.optionText, { color: colors.textPrimary }]}>{th.name}</Text>
-              {theme === th.code && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+              <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>{th.name}</Text>
+              {theme === th.code && <Text style={[styles.checkmark, { color: colors.primary, fontSize: getScaledFontSize(20) }]}>✓</Text>}
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Accessibility Section */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: getScaledFontSize(18) }]}>
+            Accessibility
+          </Text>
+          
+          {/* Text Size */}
+          <View style={[styles.option, { borderBottomColor: colors.border }]}>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
+                Text Size
+              </Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary, fontSize: getScaledFontSize(14) }]}>
+                Make text easier to read
+              </Text>
+            </View>
+          </View>
+          {textSizes.map((size) => (
+            <TouchableOpacity
+              key={size.code}
+              style={[
+                styles.option,
+                { borderBottomColor: colors.border, minHeight: minTouchTarget },
+                textSize === size.code && { backgroundColor: colors.primary + '15' },
+              ]}
+              onPress={() => setTextSize(size.code)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionContent}>
+                <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
+                  {size.name}
+                </Text>
+                <Text style={[styles.optionSubtext, { color: colors.textSecondary, fontSize: getScaledFontSize(13) }]}>
+                  {size.description}
+                </Text>
+              </View>
+              {textSize === size.code && (
+                <Text style={[styles.checkmark, { color: colors.primary, fontSize: getScaledFontSize(20) }]}>✓</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+
+          {/* High Contrast */}
+          <View style={[styles.option, { borderBottomColor: colors.border, minHeight: minTouchTarget }]}>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
+                High Contrast
+              </Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary, fontSize: getScaledFontSize(14) }]}>
+                Better visibility with stronger colors
+              </Text>
+            </View>
+            <Switch
+              value={highContrast}
+              onValueChange={setHighContrast}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={highContrast ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+
+          {/* Simplified Mode */}
+          <View style={[styles.option, { borderBottomWidth: 0, minHeight: minTouchTarget }]}>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
+                Simplified Mode
+              </Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary, fontSize: getScaledFontSize(14) }]}>
+                Larger buttons with text labels
+              </Text>
+            </View>
+            <Switch
+              value={simplifiedMode}
+              onValueChange={setSimplifiedMode}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={simplifiedMode ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+
+          {/* Tutorial Button */}
+          <TouchableOpacity
+            style={[
+              styles.option,
+              { borderTopWidth: 1, borderTopColor: colors.border, borderBottomWidth: 0, minHeight: minTouchTarget },
+            ]}
+            onPress={() => setShowTutorial(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.optionIcon}>📖</Text>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionText, { color: colors.textPrimary, fontSize: getScaledFontSize(16) }]}>
+                Show Tutorial
+              </Text>
+              <Text style={[styles.optionSubtext, { color: colors.textSecondary, fontSize: getScaledFontSize(14) }]}>
+                Learn how to use the app
+              </Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textSecondary, fontSize: getScaledFontSize(20) }]}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Device Management Section */}
@@ -292,6 +416,14 @@ export default function SettingsTab() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      {showTutorial && (
+        <Tutorial 
+          visible={showTutorial} 
+          onClose={() => {
+            setShowTutorial(false);
+          }} 
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -349,7 +481,7 @@ const styles = StyleSheet.create({
   optionSubtext: {
     fontSize: DesignSystem.typography.fontSize.sm,
     marginTop: 2,
-    fontWeight: DesignSystem.typography.fontWeight.normal,
+    fontWeight: DesignSystem.typography.fontWeight.regular,
   },
   chevron: {
     fontSize: DesignSystem.typography.fontSize['2xl'],

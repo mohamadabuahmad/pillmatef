@@ -43,6 +43,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { Dose } from "../constants/types";
+import { useAccessibility } from "../contexts/AccessibilityContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { getThemeColors } from "../constants/DesignSystem";
 
@@ -56,7 +57,9 @@ interface DoseCardProps {
 
 export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }: DoseCardProps) {
   const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
+  const { highContrast, getScaledFontSize, getMinTouchTarget, simplifiedMode } = useAccessibility();
+  const colors = getThemeColors(isDark, highContrast);
+  const minTouchTarget = getMinTouchTarget();
   
   const handleNotify = () => {
     console.log("DoseCard: Notify button pressed for", item.medName);
@@ -71,18 +74,19 @@ export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }:
     ]}>
       <View style={styles.cardContent}>
         <View style={[styles.timeBadge, { backgroundColor: colors.primary + '15' }]}>
-          <Text style={[styles.timeText, { color: colors.primary }]}>{item.time}</Text>
+          <Text style={[styles.timeText, { color: colors.primary, fontSize: getScaledFontSize(16) }]}>{item.time}</Text>
         </View>
         <View style={styles.infoSection}>
           <View style={styles.titleRow}>
             <Text style={[
               styles.title,
-              { color: colors.textPrimary },
+              { color: colors.textPrimary, fontSize: getScaledFontSize(17) },
               !item.enabled && { color: colors.textTertiary }
             ]}>{item.medName}</Text>
             <TouchableOpacity 
               style={[
                 styles.toggleBtn,
+                { minHeight: minTouchTarget, minWidth: simplifiedMode ? 60 : 50 },
                 item.enabled 
                   ? { backgroundColor: isDark ? '#065F46' : '#d1fae5' }
                   : { backgroundColor: isDark ? '#7F1D1D' : '#fee2e2' }
@@ -90,7 +94,7 @@ export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }:
               onPress={() => onToggle(item)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.toggleText, { color: item.enabled ? (isDark ? '#D1FAE5' : '#065F46') : (isDark ? '#FCA5A5' : '#991B1B') }]}>
+              <Text style={[styles.toggleText, { color: item.enabled ? (isDark ? '#D1FAE5' : '#065F46') : (isDark ? '#FCA5A5' : '#991B1B'), fontSize: getScaledFontSize(11) }]}>
                 {item.enabled ? "ON" : "OFF"}
               </Text>
             </TouchableOpacity>
@@ -98,7 +102,7 @@ export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }:
           {item.dose && (
             <Text style={[
               styles.dose,
-              { color: colors.textSecondary },
+              { color: colors.textSecondary, fontSize: getScaledFontSize(14) },
               !item.enabled && { color: colors.textTertiary }
             ]}>{item.dose}</Text>
           )}
@@ -107,29 +111,32 @@ export default function DoseCard({ item, onNotify, onEdit, onDelete, onToggle }:
 
       <View style={styles.actionButtons}>
         <TouchableOpacity 
-          style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} 
+          style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, minWidth: minTouchTarget, minHeight: minTouchTarget }]} 
           onPress={handleNotify}
           activeOpacity={0.7}
         >
-          <Text style={styles.actionBtnText}>🔔</Text>
+          <Text style={[styles.actionBtnText, { fontSize: getScaledFontSize(16) }]}>🔔</Text>
+          {simplifiedMode && <Text style={[styles.actionBtnLabel, { color: colors.textPrimary, fontSize: getScaledFontSize(10) }]}>Notify</Text>}
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} 
+          style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, minWidth: minTouchTarget, minHeight: minTouchTarget }]} 
           onPress={() => onEdit(item)}
           activeOpacity={0.7}
         >
-          <Text style={styles.actionBtnText}>✏️</Text>
+          <Text style={[styles.actionBtnText, { fontSize: getScaledFontSize(16) }]}>✏️</Text>
+          {simplifiedMode && <Text style={[styles.actionBtnLabel, { color: colors.textPrimary, fontSize: getScaledFontSize(10) }]}>Edit</Text>}
         </TouchableOpacity>
         <TouchableOpacity 
           style={[
             styles.actionBtn,
             styles.deleteBtn,
-            { backgroundColor: isDark ? '#7F1D1D' : '#fee2e2', borderColor: isDark ? '#991B1B' : '#fecaca' }
+            { backgroundColor: isDark ? '#7F1D1D' : '#fee2e2', borderColor: isDark ? '#991B1B' : '#fecaca', minWidth: minTouchTarget, minHeight: minTouchTarget }
           ]} 
           onPress={() => onDelete(item)}
           activeOpacity={0.7}
         >
-          <Text style={styles.actionBtnText}>🗑️</Text>
+          <Text style={[styles.actionBtnText, { fontSize: getScaledFontSize(16) }]}>🗑️</Text>
+          {simplifiedMode && <Text style={[styles.actionBtnLabel, { color: isDark ? '#FCA5A5' : '#991B1B', fontSize: getScaledFontSize(10) }]}>Delete</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -205,16 +212,22 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   actionBtn: { 
-    width: 40,
-    height: 40,
+    minWidth: 40,
+    minHeight: 40,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   deleteBtn: {
   },
   actionBtnText: { 
     fontSize: 16,
+  },
+  actionBtnLabel: {
+    marginTop: 2,
+    fontWeight: '600',
   },
 });

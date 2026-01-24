@@ -1,21 +1,29 @@
 import { ref, onValue, off } from "firebase/database";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import { auth, db, rtdb } from "../src/firebase";
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configure notification handler (only on native platforms)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export function useDeviceSlotsNotifications() {
   useEffect(() => {
+    // Notifications are not supported on web
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     const uid = auth.currentUser?.uid;
     if (!uid) return;
 
@@ -98,7 +106,7 @@ export function useDeviceSlotsNotifications() {
 
               // Send notification only if there are new alerts (not already notified)
               // Prevent concurrent scheduling to avoid iOS errors
-              if (notifications.length > 0 && !isSchedulingNotification) {
+              if (notifications.length > 0 && !isSchedulingNotification && Platform.OS !== 'web') {
                 isSchedulingNotification = true;
                 try {
                   // Send immediate notification using time interval trigger (minimum 1 second for iOS)

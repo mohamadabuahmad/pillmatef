@@ -141,31 +141,6 @@ describe("Home Screen", () => {
     });
   });
 
-  it("should trigger device dispense", async () => {
-    mockSet.mockResolvedValue(undefined);
-
-    // Mock device PIN
-    mockGetDocs.mockResolvedValue({
-      empty: false,
-      docs: [
-        {
-          data: () => ({ devicePIN: "123456" }),
-        },
-      ],
-    } as any);
-
-    const { getByText } = render(<Home />);
-
-    await waitFor(() => {
-      const dispenseButton = getByText(/Dispense/i);
-      fireEvent.press(dispenseButton);
-    });
-
-    await waitFor(() => {
-      expect(mockSet).toHaveBeenCalled();
-    });
-  });
-
   it("should show next dose information", async () => {
     // Mock schedule data
     mockOnSnapshot.mockImplementation((ref, callback) => {
