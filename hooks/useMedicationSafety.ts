@@ -1,3 +1,12 @@
+/**
+ * Medication Safety Hook
+ * 
+ * Provides safety checks for medications including:
+ * - Allergy verification against user's known allergies
+ * - Drug interaction checking between medications
+ * 
+ * Uses Firebase Cloud Functions to perform AI-powered safety checks.
+ */
 import { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
@@ -20,10 +29,20 @@ interface DrugInteractionResult {
   recommendation: string;
 }
 
+/**
+ * Hook for medication safety checks
+ * 
+ * @returns Object with checking state and safety check functions
+ */
 export function useMedicationSafety() {
   const [checking, setChecking] = useState(false);
 
-  // Get user's allergies from Firestore
+  /**
+   * Get user's allergies from Firestore
+   * 
+   * @param uid - User ID
+   * @returns Promise<string[]> - Array of allergy names
+   */
   const getUserAllergies = async (uid: string): Promise<string[]> => {
     try {
       const userRef = doc(db, "users", uid);
@@ -72,7 +91,15 @@ export function useMedicationSafety() {
     });
   };
 
-  // Check if medication conflicts with allergies
+  /**
+   * Check if a medication conflicts with user's known allergies
+   * 
+   * Uses AI-powered Cloud Function to check for potential allergic reactions.
+   * 
+   * @param medicationName - Name of the medication to check
+   * @param userAllergies - Array of user's known allergies
+   * @returns Promise<AllergyCheckResult> - Result with allergy status and severity
+   */
   const checkAllergy = async (
     medicationName: string,
     userAllergies: string[]
@@ -117,7 +144,18 @@ export function useMedicationSafety() {
     }
   };
 
-  // Check drug interactions
+  /**
+   * Check for drug interactions between two medications
+   * 
+   * Uses AI-powered Cloud Function to check for potential interactions.
+   * Can also check if medications need time gaps between doses.
+   * 
+   * @param medication1 - First medication name
+   * @param medication2 - Second medication name
+   * @param medication1Time - Time when first medication is taken (optional)
+   * @param medication2Time - Time when second medication is taken (optional)
+   * @returns Promise<DrugInteractionResult> - Result with interaction status and recommendations
+   */
   const checkInteraction = async (
     medication1: string,
     medication2: string,

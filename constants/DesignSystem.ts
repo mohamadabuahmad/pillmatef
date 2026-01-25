@@ -1,3 +1,16 @@
+/**
+ * Design System
+ * 
+ * Centralized design tokens for the PillMate app including:
+ * - Color palette (light/dark mode support)
+ * - Typography scale and weights
+ * - Spacing system
+ * - Border radius values
+ * - Shadow definitions
+ * - Layout constants (padding, margins)
+ * 
+ * Ensures consistent design across the entire application.
+ */
 // Modern, Neutral Design System for PillMate
 // Professional color palette with perfect typography
 
@@ -156,7 +169,18 @@ export const DesignSystem = {
   },
 };
 
-// Helper function to get theme colors based on dark mode and high contrast
+/**
+ * Get theme colors based on dark mode and high contrast settings
+ * 
+ * Returns a color palette adapted for:
+ * - Light mode (default)
+ * - Dark mode (when isDark is true)
+ * - High contrast mode (for accessibility)
+ * 
+ * @param isDark - Whether dark mode is enabled
+ * @param highContrast - Whether high contrast mode is enabled (default: false)
+ * @returns Color palette object with all theme colors
+ */
 export const getThemeColors = (isDark: boolean, highContrast: boolean = false) => {
   if (isDark) {
     const baseColors = {

@@ -1,3 +1,10 @@
+/**
+ * Accessibility Context
+ * 
+ * Manages accessibility settings including text size, high contrast mode,
+ * and simplified mode. Provides helper functions to scale fonts and spacing
+ * based on user preferences. Settings are persisted to AsyncStorage.
+ */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,7 +29,7 @@ interface AccessibilityContextType {
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
 const ACCESSIBILITY_STORAGE_KEY = '@pillmate_accessibility';
 
-// Text size multipliers
+// Text size multipliers for scaling fonts based on user preference
 const TEXT_SIZE_MULTIPLIERS: Record<TextSize, number> = {
   'small': 0.9,
   'medium': 1.0,
@@ -30,7 +37,7 @@ const TEXT_SIZE_MULTIPLIERS: Record<TextSize, number> = {
   'extra-large': 1.6,
 };
 
-// Spacing multipliers (for larger touch targets)
+// Spacing multipliers for larger touch targets when text size increases
 const SPACING_MULTIPLIERS: Record<TextSize, number> = {
   'small': 1.0,
   'medium': 1.0,
@@ -102,19 +109,34 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     }
   };
 
+  /**
+   * Scale font size based on user's text size preference
+   * @param baseSize - Base font size in pixels
+   * @returns Scaled font size
+   */
   const getScaledFontSize = (baseSize: number): number => {
     return Math.round(baseSize * TEXT_SIZE_MULTIPLIERS[textSize]);
   };
 
+  /**
+   * Scale spacing based on user's text size preference
+   * @param baseSpacing - Base spacing value in pixels
+   * @returns Scaled spacing value
+   */
   const getScaledSpacing = (baseSpacing: number): number => {
     return Math.round(baseSpacing * SPACING_MULTIPLIERS[textSize]);
   };
 
+  /**
+   * Get minimum touch target size based on text size and simplified mode
+   * WCAG recommends 44x44px minimum for accessibility
+   * @returns Minimum touch target size in pixels
+   */
   const getMinTouchTarget = (): number => {
-    // Minimum touch target size based on text size (WCAG recommends 44x44px minimum)
+    // Extra-large text or simplified mode needs larger touch targets
     if (textSize === 'extra-large' || simplifiedMode) return 56;
     if (textSize === 'large') return 48;
-    return 44;
+    return 44; // WCAG minimum
   };
 
   // setShowTutorial doesn't need to be persisted, it's just UI state

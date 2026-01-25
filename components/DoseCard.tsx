@@ -1,3 +1,15 @@
+/**
+ * Dose Card Component
+ * 
+ * Displays a medication dose card showing:
+ * - Medication name and time
+ * - Number of pills/dose
+ * - Enable/disable toggle
+ * - Action buttons (notify, edit, delete)
+ * 
+ * The card adapts to accessibility settings (text size, simplified mode)
+ * and theme preferences (light/dark mode).
+ */
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { getThemeColors } from "../constants/DesignSystem";

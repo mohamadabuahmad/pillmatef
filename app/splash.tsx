@@ -1,3 +1,11 @@
+/**
+ * Splash Screen Component
+ * 
+ * Displays a loading screen while checking the user's authentication state.
+ * After a 2-second delay, navigates to:
+ * - Main tabs if user is authenticated
+ * - Sign-in screen if user is not authenticated
+ */
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -6,17 +14,23 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { auth } from '../src/firebase';
 
 export default function SplashScreen() {
+  // Check authentication state on mount
   useEffect(() => {
+    // Listen for authentication state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Wait 2 seconds before navigating (for splash screen visibility)
       setTimeout(() => {
         if (user) {
+          // User is signed in - navigate to main app
           router.replace('/(tabs)' as any);
         } else {
+          // User is not signed in - navigate to sign-in screen
           router.replace('/(auth)/sign-in' as any);
         }
       }, 2000);
     });
 
+    // Cleanup: unsubscribe from auth state listener on unmount
     return unsubscribe;
   }, []);
 

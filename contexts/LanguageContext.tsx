@@ -1,3 +1,10 @@
+/**
+ * Language Context
+ * 
+ * Manages app language and internationalization. Supports English (en),
+ * Arabic (ar), and Hebrew (he). Provides a translation function (t) to
+ * get translated strings. Language preference is persisted to AsyncStorage.
+ */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -271,6 +278,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * Translation function - returns translated string for given key
+   * Falls back to the key itself if translation is not found
+   * @param key - Translation key
+   * @returns Translated string or the key if translation not found
+   */
   const t = (key: string): string => {
     return translations[language][key] || key;
   };

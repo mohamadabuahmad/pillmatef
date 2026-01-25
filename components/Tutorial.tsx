@@ -1,3 +1,10 @@
+/**
+ * Tutorial Component
+ * 
+ * Displays an interactive step-by-step tutorial modal that guides users
+ * through the app's features. Shows explanations for each major feature
+ * with navigation between steps. Includes a medical disclaimer at the end.
+ */
 import React, { useState, useEffect } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,6 +28,7 @@ export default function Tutorial({ visible, onClose }: TutorialProps) {
     }
   }, [visible]);
 
+  // Tutorial steps with explanations for each feature
   const explanations = [
     {
       title: 'Home Screen',
@@ -66,11 +74,20 @@ export default function Tutorial({ visible, onClose }: TutorialProps) {
       title: 'Settings',
       text: 'Go to Settings tab to make text bigger, enable high contrast, or turn on simplified mode.',
     },
+    {
+      title: 'Important Medical Disclaimer',
+      text: 'This application is for demonstration purposes only. Always consult with your doctor or healthcare provider before making any decisions about your medications, dosages, or treatment plans. The app is not responsible for any medical decisions or outcomes. The information provided in this app should not replace professional medical advice, diagnosis, or treatment.',
+    },
   ];
 
   const totalSteps = explanations.length;
   const current = explanations[currentStep];
+  // Check if we're on the medical disclaimer step (last step)
+  const isDisclaimerStep = currentStep === totalSteps - 1;
 
+  /**
+   * Navigate to next tutorial step or close if on last step
+   */
   const next = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
@@ -79,6 +96,9 @@ export default function Tutorial({ visible, onClose }: TutorialProps) {
     }
   };
 
+  /**
+   * Navigate to previous tutorial step
+   */
   const previous = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
@@ -111,7 +131,10 @@ export default function Tutorial({ visible, onClose }: TutorialProps) {
       <View style={styles.overlay}>
         <View style={[styles.box, { backgroundColor: bgColor }]}>
           <View style={styles.header}>
-            <Text style={[styles.title, { color: textColor, fontSize: getScaledFontSize(22) }]}>
+            <Text style={[styles.title, { 
+              color: isDisclaimerStep ? '#FF6B35' : textColor, 
+              fontSize: getScaledFontSize(22) 
+            }]}>
               {current.title}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
@@ -119,7 +142,12 @@ export default function Tutorial({ visible, onClose }: TutorialProps) {
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.text, { color: secondaryColor, fontSize: getScaledFontSize(18), lineHeight: getScaledFontSize(28) }]}>
+          <Text style={[styles.text, { 
+            color: isDisclaimerStep ? (isDark ? '#FFB8A3' : '#CC4A2E') : secondaryColor, 
+            fontSize: getScaledFontSize(18), 
+            lineHeight: getScaledFontSize(28),
+            fontWeight: isDisclaimerStep ? '500' : '400'
+          }]}>
             {current.text}
           </Text>
 

@@ -1,3 +1,18 @@
+/**
+ * Home Screen Component
+ * 
+ * Main screen for managing medications. Features include:
+ * - View medication schedule with next dose display
+ * - Add new medications with safety checks (allergies, interactions)
+ * - Edit and delete medications
+ * - Enable/disable medication reminders
+ * - AI-powered medication name suggestions
+ * - Automatic device dispense on notification
+ * - Manual dispense button
+ * - Tutorial for new users
+ * 
+ * Integrates with Firebase for data persistence and real-time updates.
+ */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,7 +53,7 @@ export default function Home() {
   const colors = getThemeColors(isDark, highContrast);
   const minTouchTarget = getMinTouchTarget();
 
-  // Form state
+  // Form state for adding new medication
   const [medName, setMedName] = useState("");
   const [doseNumber, setDoseNumber] = useState("");
   const [selectedHour, setSelectedHour] = useState(8);
@@ -49,8 +64,9 @@ export default function Home() {
   const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
   const [blockDispense, setBlockDispense] = useState(false);
 
-  // AI Hooks
+  // AI-powered hooks for medication safety and suggestions
   const { checkAllergy, checkInteraction, getUserAllergies, checking: safetyChecking } = useMedicationSafety();
+  // Get AI suggestions when user types medication name (minimum 2 characters)
   const { suggestions: aiSuggestions, loading: suggestionsLoading } = useMedicationSuggestions(
     medName,
     medName.trim().length >= 2 && showSuggestions
@@ -130,31 +146,37 @@ export default function Home() {
     });
   }, []);
 
-  // Live schedule from Firestore
+  // Subscribe to real-time medication schedule updates from Firestore
+  // Automatically updates when medications are added, edited, or deleted
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
+      // Redirect to sign-in if not authenticated
       router.replace("/(auth)/sign-in" as any);
       return;
     }
 
+    // Query user's medication schedule, ordered by time
     const ref = collection(db, "users", uid, "schedule");
     const q = query(ref, orderBy("time", "asc"));
 
+    // Listen for real-time changes
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Dose[];
       setDoses(list);
     });
 
+    // Cleanup: unsubscribe when component unmounts
     return () => unsub();
   }, []);
 
-  // Schedule notifications separately to avoid blocking UI
+  // Schedule notifications for all enabled medications
+  // Uses debouncing to avoid excessive rescheduling when doses change
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (doses.length === 0) return;
 
-    // Debounce notification scheduling
+    // Debounce notification scheduling (wait 1 second after last change)
     if (notificationTimeoutRef.current) {
       clearTimeout(notificationTimeoutRef.current);
     }
@@ -163,8 +185,10 @@ export default function Home() {
       const ok = await ensureNotificationPermissions();
       if (!ok) return;
 
+      // Cancel all existing notifications before rescheduling
       await cancelAllDoseNotifications();
 
+      // Schedule daily recurring notifications for each enabled medication
       for (const d of doses) {
         if (!d.enabled) continue;
 
@@ -179,6 +203,7 @@ export default function Home() {
       }
     }, 1000);
 
+    // Cleanup: clear timeout on unmount or when doses change
     return () => {
       if (notificationTimeoutRef.current) {
         clearTimeout(notificationTimeoutRef.current);
@@ -186,7 +211,11 @@ export default function Home() {
     };
   }, [doses]);
 
-  // Auto-dispense function (similar to triggerDispense but without user alerts)
+  /**
+   * Auto-dispense function - triggered automatically when notification is received
+   * Performs safety checks before dispensing (allergies, block status)
+   * Similar to triggerDispense but without user alerts (silent operation)
+   */
   const autoTriggerDispense = useCallback(async () => {
     if (!devicePIN) {
       console.log("No device linked for auto-dispense");
@@ -217,7 +246,7 @@ export default function Home() {
     }
 
     try {
-      // Trigger dispense automatically
+      // Trigger dispense automatically via Realtime Database
       const dispenseRef = ref(rtdb, `devices/${devicePIN}/dispense`);
       await set(dispenseRef, true);
       console.log("✅ Auto-dispense triggered successfully");
@@ -227,6 +256,9 @@ export default function Home() {
   }, [devicePIN, doses, blockDispense, getUserAllergies, checkAllergy]);
 
   // Auto-dispense when pill notification is received
+  // Listens for medication reminder notifications and automatically:
+  // 1. Rotates the device motor
+  // 2. Triggers device dispense (with safety checks)
   useEffect(() => {
     if (!devicePIN) return;
 
@@ -248,6 +280,7 @@ export default function Home() {
       }
     });
 
+    // Cleanup: remove notification listener on unmount
     return () => {
       subscription.remove();
     };
@@ -264,6 +297,16 @@ export default function Home() {
     return { hour: hour || 8, minute: minute || 0 };
   };
 
+  /**
+   * Add a new medication to the schedule
+   * 
+   * Performs comprehensive safety checks:
+   * 1. Allergy verification
+   * 2. Drug interaction checking
+   * 3. Time gap validation
+   * 
+   * Only adds medication if all safety checks pass.
+   */
   const addMedication = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
@@ -272,12 +315,13 @@ export default function Home() {
     const dose = doseNumber.trim();
     const timeStr = formatTime(selectedHour, selectedMinute);
 
+    // Validate input
     if (!name) return Alert.alert(t('missing'), t('enterMedicationName'));
     if (!dose || isNaN(Number(dose)) || Number(dose) <= 0) {
       return Alert.alert(t('invalidDose'), t('enterValidNumber'));
     }
 
-    // 1. CHECK ALLERGIES
+    // 1. CHECK ALLERGIES - Verify medication doesn't conflict with user's allergies
     const userAllergies = await getUserAllergies(uid);
     if (userAllergies.length > 0) {
       const allergyCheck = await checkAllergy(name, userAllergies);
@@ -311,6 +355,7 @@ export default function Home() {
     }
 
     // 2. CHECK DRUG INTERACTIONS WITH EXISTING MEDICATIONS
+    // Verify new medication doesn't interact dangerously with existing medications
     for (const existingDose of doses) {
       if (!existingDose.enabled) continue;
 
@@ -321,6 +366,7 @@ export default function Home() {
         existingDose.time
       );
 
+      // Block if medications cannot be taken together
       if (!interaction.canTakeTogether || interaction.recommendation === "avoid") {
         Alert.alert(
           `🚫 ${t('drugInteractionWarning')}`,
@@ -330,6 +376,7 @@ export default function Home() {
         return;
       }
 
+      // Warn if medications need time gap between doses
       if (interaction.recommendation === "space_hours" && interaction.timeGapRequired > 0) {
         const timeGapWarning = `⚠️ ${t('timeGapRequired')}\n\n${interaction.message}\n\nYou need at least ${interaction.timeGapRequired} hours between "${name}" and "${existingDose.medName}".`;
 
@@ -348,7 +395,7 @@ export default function Home() {
       }
     }
 
-    // 3. ADD MEDICATION IF ALL CHECKS PASS
+    // 3. ADD MEDICATION IF ALL CHECKS PASS - Save to Firestore
     try {
       await addDoc(collection(db, "users", uid, "schedule"), {
         medName: name,
@@ -472,14 +519,23 @@ export default function Home() {
     Alert.alert("Scheduled", `Reminder set for ${dose.time} (next occurrence).`);
   };
 
-  // Trigger device dispense
+  /**
+   * Manually trigger device dispense
+   * 
+   * Performs safety checks before dispensing:
+   * - Verifies device is linked
+   * - Checks if dispense is blocked
+   * - Verifies allergies
+   * 
+   * Shows user alerts for any issues.
+   */
   const triggerDispense = async () => {
     if (!devicePIN) {
       Alert.alert("No device linked", "Please link a device first from the device link page.");
       return;
     }
 
-    // Check if dispense is blocked
+    // Check if dispense is blocked (e.g., due to allergy warning)
     if (blockDispense) {
       Alert.alert(
         "⚠️ Dispense Blocked",
@@ -511,6 +567,7 @@ export default function Home() {
     }
 
     try {
+      // Send dispense command to device via Realtime Database
       const dispenseRef = ref(rtdb, `devices/${devicePIN}/dispense`);
       await set(dispenseRef, true);
       Alert.alert("Dispense triggered", "The device will dispense a dose now.");

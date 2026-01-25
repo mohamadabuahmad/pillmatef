@@ -1,3 +1,14 @@
+/**
+ * Device Slots Notifications Hook
+ * 
+ * Monitors device pill slots in real-time via Firebase Realtime Database.
+ * Sends notifications when:
+ * - A slot becomes empty (pillCount === 0)
+ * - A slot becomes low (pillCount <= lowThreshold)
+ * 
+ * Prevents duplicate notifications by tracking which slots have already been notified.
+ * Automatically resets notification state when slots are refilled.
+ */
 import { ref, onValue, off } from "firebase/database";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect } from "react";
@@ -17,6 +28,12 @@ if (Platform.OS !== 'web') {
   });
 }
 
+/**
+ * Hook to monitor device slots and send notifications for low/empty pills
+ * 
+ * Sets up a real-time listener on the device's slots data in Realtime Database.
+ * Tracks notification state to avoid duplicate alerts.
+ */
 export function useDeviceSlotsNotifications() {
   useEffect(() => {
     // Notifications are not supported on web

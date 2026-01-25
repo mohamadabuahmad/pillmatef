@@ -1,8 +1,22 @@
+/**
+ * Medication Suggestions Hook
+ * 
+ * Provides AI-powered medication name suggestions as the user types.
+ * Uses Firebase Cloud Functions to get suggestions from an AI service.
+ * Implements debouncing to avoid excessive API calls.
+ */
 import { useState, useEffect, useRef } from "react";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
 import { functions, auth } from "../src/firebase";
 
+/**
+ * Hook to get medication name suggestions based on user input
+ * 
+ * @param query - The medication name query (minimum 2 characters)
+ * @param enabled - Whether to fetch suggestions (default: true)
+ * @returns Object with suggestions array and loading state
+ */
 export function useMedicationSuggestions(query: string, enabled: boolean = true) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);

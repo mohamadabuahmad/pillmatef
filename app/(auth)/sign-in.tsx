@@ -1,3 +1,11 @@
+/**
+ * Sign In Screen
+ * 
+ * Allows users to sign in with email and password.
+ * After successful sign-in, checks if user has a linked device:
+ * - If device is linked: navigates to main tabs
+ * - If no device: navigates to device linking screen
+ */
 import { Link, router } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
@@ -14,6 +22,11 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  /**
+   * Check if user has a linked device
+   * @param uid - User ID
+   * @returns true if user has at least one linked device
+   */
   const checkForLinkedDevice = async (uid: string): Promise<boolean> => {
     try {
       const devicesRef = collection(db, "users", uid, "devices");
@@ -25,6 +38,10 @@ export default function SignIn() {
     }
   };
 
+  /**
+   * Handle sign-in form submission
+   * Validates input, authenticates user, and navigates based on device status
+   */
   const onSignIn = async () => {
     setErrorMessage("");
     
